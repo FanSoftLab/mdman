@@ -1,8 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	const browser = typeof window !== 'undefined';
-	import { appState, Editor, Preview, Sidebar, Toolbar } from './lib';
+	import { appState, Editor, Preview, Toolbar } from './lib';
 	import { extractTableOfContents } from './lib/markdown';
+	import { t, initLocale, setLocale, getLocale, onLocaleChange, type Locale } from './lib/i18n';
+	import * as platform from './lib/platform';
+	import type { RecentFile } from './lib/platform';
+	import Sidebar from './lib/components/Sidebar.svelte';
+	import SettingsPanel from './lib/components/SettingsPanel.svelte';
+	import HelpPanel from './lib/components/HelpPanel.svelte';
+	import RecentPanel from './lib/components/RecentPanel.svelte';
+	import TabBar, { type Tab } from './lib/components/TabBar.svelte';
+	import FindReplace from './lib/components/FindReplace.svelte';
 	import 'katex/dist/katex.min.css';
 	import 'github-markdown-css/github-markdown-dark.css';
 	import 'highlight.js/styles/github-dark.css';
@@ -25,6 +34,19 @@
 		id: string;
 	}
 	let tocItems = $state<TOCItem[]>([]);
+	let themeApp = $state<'dark' | 'light' | 'system'>('system');
+	let themePreview = $state<'dark' | 'light' | 'system'>('system');
+	let resolvedAppTheme = $state<'dark' | 'light'>('dark');
+	let resolvedPreviewTheme = $state<'dark' | 'light'>('dark');
+	let settingsOpen = $state(false);
+	let helpOpen = $state(false);
+	let recentOpen = $state(false);
+	let findOpen = $state(false);
+	let recentFiles = $state<RecentFile[]>([]);
+	let workspace = $state('');
+	let tabs = $state<Tab[]>([{ id: 'boot', title: 'untitled.md', path: '', dirty: false }]);
+	let activeTabId = $state('boot');
+	let localeTick = $state(0);
 
 	// Load TOC state from localStorage
 	function loadTOCState() {
@@ -130,6 +152,103 @@
 	let showMobileSidebar = $state(false);
 	let showDesktopSidebar = $state(true);
 
+
+	function resolveTheme(pref: 'dark' | 'light' | 'system'): 'dark' | 'light' {
+		if (pref === 'system') {
+			return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+		}
+		return pref;
+	}
+	function applyThemes() {
+		resolvedAppTheme = resolveTheme(themeApp);
+		resolvedPreviewTheme = resolveTheme(themePreview);
+		document.documentElement.dataset.theme = resolvedAppTheme;
+		document.documentElement.classList.toggle('theme-light', resolvedAppTheme === 'light');
+		document.documentElement.classList.toggle('theme-dark', resolvedAppTheme === 'dark');
+		document.documentElement.style.colorScheme = resolvedAppTheme;
+		document.body?.classList.toggle('theme-light', resolvedAppTheme === 'light');
+		document.body?.classList.toggle('theme-dark', resolvedAppTheme === 'dark');
+		// Toggle markdown CSS class for preview
+		document.documentElement.classList.toggle('preview-theme-light', resolvedPreviewTheme === 'light');
+	}
+	function newTabId() {
+		return 'tab-' + Math.random().toString(36).slice(2, 10);
+	}
+	function basename(path: string) {
+		const norm = path.replace(/\\/g, '/');
+		const parts = norm.split('/').filter(Boolean);
+		return parts[parts.length - 1] || path;
+	}
+	function openInTab(path: string, title: string, content: string) {
+		const existing = tabs.find((t) => t.path && t.path === path);
+		if (existing) {
+			activeTabId = existing.id;
+			appState.buffer = content;
+			return;
+		}
+		const id = newTabId();
+		tabs = [...tabs, { id, title: title || t('untitled'), path, dirty: false }];
+		activeTabId = id;
+		appState.buffer = content;
+	}
+	async function persistUiSettings() {
+		const prev = await platform.getSettings();
+		await platform.saveSettings({
+			themeApp,
+			themePreview,
+			locale: getLocale(),
+			recentFileMax: prev.recentFileMax ?? 20,
+			workspace,
+			showTOC,
+			showDesktopSidebar,
+			viewOnlyMode: appState.viewOnlyMode,
+			sidebarWidth,
+			editorWidthPercent,
+			session: {
+				tabs: tabs.map((t) => ({ id: t.id, title: t.title, path: t.path })),
+				activeTabId,
+			},
+		});
+	}
+	async function saveCurrent() {
+		const tab = tabs.find((t) => t.id === activeTabId);
+		if (!tab) return;
+		if (!tab.path) {
+			await saveCurrentAs();
+			return;
+		}
+		await platform.writeFile(tab.path, appState.buffer);
+		tabs = tabs.map((t) => (t.id === tab.id ? { ...t, dirty: false } : t));
+		await persistUiSettings();
+	}
+	async function saveCurrentAs() {
+		const tab = tabs.find((t) => t.id === activeTabId);
+		const name = tab?.title || t('untitled');
+		const path = await platform.saveFileAs(appState.buffer, name);
+		if (!path) return;
+		tabs = tabs.map((t) =>
+			t.id === activeTabId ? { ...t, path, title: basename(path), dirty: false } : t
+		);
+		recentFiles = await platform.listRecent();
+		await persistUiSettings();
+	}
+	async function loadRecentList() {
+		recentFiles = await platform.listRecent();
+	}
+	async function openPaths(paths: string[]) {
+		for (const pth of paths || []) {
+			if (!pth || pth.startsWith('-')) continue;
+			try {
+				const content = await platform.readFile(pth);
+				openInTab(pth, basename(pth), content);
+			} catch (err) {
+				console.error('open path failed', pth, err);
+			}
+		}
+		await loadRecentList();
+		await persistUiSettings();
+	}
+
 	onMount(() => {
 		// Check if mobile on mount
 		const checkMobile = () => {
@@ -214,6 +333,80 @@
 		loadTOCState();
 		await appState.initialize();
 
+		try {
+		const savedLoc = localStorage.getItem('mdmark.locale');
+		initLocale(savedLoc || undefined);
+		onLocaleChange(() => { localeTick++; });
+		const settings = await platform.getSettings();
+		if (settings.themeApp === 'dark' || settings.themeApp === 'light' || settings.themeApp === 'system') themeApp = settings.themeApp as any;
+		if (settings.themePreview === 'dark' || settings.themePreview === 'light' || settings.themePreview === 'system') themePreview = settings.themePreview as any;
+		if (settings.locale === 'en' || settings.locale === 'uk') setLocale(settings.locale as Locale);
+		applyThemes();
+		workspace = (await platform.getWorkspace()) || '';
+		if (typeof settings.showTOC === 'boolean') showTOC = settings.showTOC as boolean;
+		if (typeof settings.showDesktopSidebar === 'boolean') showDesktopSidebar = settings.showDesktopSidebar as boolean;
+		if (typeof settings.viewOnlyMode === 'boolean') appState.setViewOnlyMode(settings.viewOnlyMode as boolean);
+		if (typeof settings.sidebarWidth === 'number') sidebarWidth = settings.sidebarWidth as number;
+		if (typeof settings.editorWidthPercent === 'number') editorWidthPercent = settings.editorWidthPercent as number;
+		await loadRecentList();
+		const session = (settings.session as any) || (await platform.getSession());
+		if (session && Array.isArray(session.tabs) && session.tabs.length) {
+			tabs = session.tabs.map((t: any) => ({ id: t.id || newTabId(), title: t.title || t('untitled'), path: t.path || '', dirty: false }));
+			activeTabId = session.activeTabId || tabs[0]?.id || '';
+			const active = tabs.find((t) => t.id === activeTabId);
+			if (active?.path) {
+				try { appState.buffer = await platform.readFile(active.path); } catch { appState.buffer = ''; }
+			} else {
+				appState.buffer = '';
+			}
+		} else {
+			const id = newTabId();
+			tabs = [{ id, title: 'untitled.md', path: '', dirty: false }];
+			activeTabId = id;
+			appState.buffer = '';
+		}
+		const pending = await platform.consumePendingFiles();
+		if (pending?.length) await openPaths(pending);
+		platform.onOpenFiles((paths) => { void openPaths(paths); });
+		const snap = () => { void platform.snapshotWindow(); void persistUiSettings(); };
+		const snapTimer = setInterval(snap, 5000);
+		window.addEventListener('beforeunload', snap);
+		document.addEventListener('visibilitychange', () => { if (document.hidden) snap(); });
+
+		window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyThemes);
+
+		const onKey = async (e: KeyboardEvent) => {
+			const mod = e.ctrlKey || e.metaKey;
+			if (!mod) return;
+			if (e.key === 's' && !e.shiftKey) { e.preventDefault(); await saveCurrent(); }
+			if (e.key === 'S' && e.shiftKey) { e.preventDefault(); await saveCurrentAs(); }
+			if (e.key === 'o') {
+				e.preventDefault();
+				const r = await platform.openFileDialog();
+				if (r) openInTab(r.path, r.name, r.content);
+			}
+			if (e.key === 'f') { e.preventDefault(); findOpen = true; }
+			if (e.key === 't') {
+				e.preventDefault();
+				const id = newTabId();
+				tabs = [...tabs, { id, title: 'untitled.md', path: '', dirty: false }];
+				activeTabId = id;
+				appState.buffer = '';
+				await persistUiSettings();
+			}
+		};
+		window.addEventListener('keydown', onKey);
+
+		} catch (err) {
+			console.error('desktop init failed', err);
+			if (!tabs.length) {
+				const id = newTabId();
+				tabs = [{ id, title: 'untitled.md', path: '', dirty: false }];
+				activeTabId = id;
+				appState.buffer = '';
+			}
+		}
+
 		// Initial section measurement after a short delay to ensure DOM is ready
 		setTimeout(() => {
 			syncSectionDimensions();
@@ -269,6 +462,8 @@
 	}
 
 	function handleEditorChange(content: string) {
+		tabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, dirty: true } : tab));
+
 		appState.updateBuffer(content);
 
 		// Schedule section measurement after content changes
@@ -787,8 +982,7 @@
 	onmouseup={handleResizeEnd}
 />
 
-<div class="app" class:auto-hide={appState.autoHideUI} class:resizing={isResizingSidebar || isResizingEditor} class:mobile={isMobile} class:sidebar-collapsed={!showDesktopSidebar && !isMobile}>
-	{#if appState.isInitialized}
+<div class="app" data-theme={resolvedAppTheme} class:theme-light={resolvedAppTheme === "light"} class:auto-hide={appState.autoHideUI} class:resizing={isResizingSidebar || isResizingEditor} class:mobile={isMobile} class:sidebar-collapsed={!showDesktopSidebar && !isMobile}>
 		<!-- Mobile sidebar overlay -->
 		{#if isMobile && showMobileSidebar}
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -803,11 +997,20 @@
 
 		<div
 			class="sidebar-wrapper"
-			class:hidden={isMobile ? !showMobileSidebar : (appState.autoHideUI ? !showSidebar : !showDesktopSidebar)}
+			class:hidden={isMobile ? !showMobileSidebar : (!showDesktopSidebar && !appState.autoHideUI)}
+			class:auto-hidden={!isMobile && appState.autoHideUI && !showSidebar}
 			class:mobile-sidebar={isMobile}
-			style={isMobile ? '' : `width: ${appState.autoHideUI ? (showSidebar ? sidebarWidth : 0) : (showDesktopSidebar ? sidebarWidth : 0)}px;`}
+			style={isMobile ? '' : `width: ${showDesktopSidebar ? sidebarWidth : 0}px;`}
 		>
-			<Sidebar />
+			<Sidebar
+					workspace={workspace}
+					onworkspace={(path) => { workspace = path; void persistUiSettings(); }}
+					onopenfile={(path, content) => {
+						openInTab(path, basename(path), content);
+						void persistUiSettings();
+						void loadRecentList();
+					}}
+				/>
 			{#if !isMobile && (appState.autoHideUI ? showSidebar : showDesktopSidebar)}
 				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<div
@@ -818,14 +1021,12 @@
 				></div>
 			{/if}
 		</div>
-	{/if}
 
 	<main class="main-content">
-		{#if appState.activeFile}
 			<div class="toolbar-row" class:hidden={appState.autoHideUI && !showToolbar}>
 				<button
 					class="sidebar-toggle-btn"
-					title={isMobile ? 'Toggle sidebar' : (showDesktopSidebar ? 'Hide sidebar' : 'Show sidebar')}
+					title={isMobile ? t('toggleSidebar') : (showDesktopSidebar ? t('hideSidebar') : t('showSidebar'))}
 					onclick={() => {
 						if (isMobile) {
 							showMobileSidebar = !showMobileSidebar;
@@ -844,7 +1045,7 @@
 					<button
 						class="toc-btn"
 						class:active={showTOC}
-						title="Table of Contents"
+						title={t('tableOfContents')}
 						onclick={() => { showTOC = !showTOC; saveTOCState(); }}
 						disabled={tocItems.length === 0}
 					>
@@ -852,10 +1053,30 @@
 							<path d="M2 4a1 1 0 100-2 1 1 0 000 2zm3.75-1.5a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5zm0 5a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5zm0 5a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5zM3 8a1 1 0 11-2 0 1 1 0 012 0zm-1 6a1 1 0 100-2 1 1 0 000 2z"/>
 						</svg>
 					</button>
+					<button class="toc-btn" class:active={recentOpen} title={t('recent')} onclick={() => { recentOpen = !recentOpen; settingsOpen = false; }}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.992l2.028.812a.75.75 0 0 1-.557 1.392l-2.5-1A.751.751 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/></svg>
+					</button>
+					<button class="toc-btn" class:active={settingsOpen} title={t('settings')} onclick={() => { settingsOpen = !settingsOpen; recentOpen = false; }}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+							<path d="M8 0a.75.75 0 0 1 .75.75v.52a6.5 6.5 0 0 1 1.68.5l.37-.37a.75.75 0 0 1 1.06 0l.73.73a.75.75 0 0 1 0 1.06l-.37.37c.10.10.0.2.5 1.68h.52a.75.75 0 0 1 0 1.5h-.52a6.5 6.5 0 0 1-.5 1.68l.37.37a.75.75 0 0 1 0 1.06l-.73.73a.75.75 0 0 1-1.06 0l-.37-.37a6.5 6.5 0 0 1-1.68.5v.52a.75.75 0 0 1-1.5 0v-.52a6.5 6.5 0 0 1-1.68-.5l-.37.37a.75.75 0 0 1-1.06 0l-.73-.73a.75.75 0 0 1 0-1.06l.37-.37a6.5 6.5 0 0 1-.5-1.68H.75a.75.75 0 0 1 0-1.5h.52a6.5 6.5 0 0 1 .5-1.68l-.37-.37a.75.75 0 0 1 0-1.06l.73-.73a.75.75 0 0 1 1.06 0l.37.37a6.5 6.5 0 0 1 1.68-.5V.75A.75.75 0 0 1 8 0Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+						</svg>
+					</button>
+					<button class="toc-btn" class:active={helpOpen} title={t('help')} onclick={() => { helpOpen = !helpOpen; }}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm9 3a1 1 0 11-2 0 1 1 0 012 0zM6.92 6.085c.081-.16.19-.31.354-.443.143-.119.34-.22.585-.287.27-.073.56-.08.824-.018.3.07.582.217.78.421.2.206.332.456.378.74.03.18.018.35-.027.516-.05.18-.144.34-.27.47-.13.135-.29.242-.47.314-.16.065-.33.1-.5.1h-.25a.75.75 0 000 1.5h.25c.292 0 .575-.06.84-.17.28-.115.54-.29.77-.52.23-.23.41-.5.54-.81.13-.32.19-.67.16-1.03a2.49 2.49 0 00-.7-1.55 2.49 2.49 0 00-1.49-.74 2.57 2.57 0 00-1.42.1 2.34 2.34 0 00-1.06.69 2.2 2.2 0 00-.45 1.08.75.75 0 001.48.2c.03-.19.1-.36.2-.5z"/></svg>
+					</button>
+					<button class="toc-btn" title={t('findReplace')} onclick={() => { findOpen = !findOpen; }}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+					</button>
+					<button class="toc-btn" title={t('save')} onclick={() => saveCurrent()}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073ZM4.5 12.25a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Z"/></svg>
+					</button>
+					<button class="toc-btn" title={t('saveAs')} onclick={() => saveCurrentAs()}>
+						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25ZM3.75 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073Z"/></svg>
+					</button>
 					<button
 						class="view-toggle-btn"
 						class:active={appState.viewOnlyMode}
-						title={appState.viewOnlyMode ? 'Switch to Edit Mode' : 'Switch to View Only'}
+						title={appState.viewOnlyMode ? t('editMode') : t('viewOnly')}
 						onclick={() => appState.toggleViewOnlyMode()}
 					>
 						{#if appState.viewOnlyMode}
@@ -869,76 +1090,140 @@
 						{/if}
 					</button>
 					{#if appState.viewOnlyMode}
-						<span class="view-mode-badge">View Only</span>
+						<span class="view-mode-badge">{t('viewOnly')}</span>
+					{:else}
+						<span class="view-mode-badge" style="background-color: #238636;">{t('editMode')}</span>
 					{/if}
-					{#if !appState.viewOnlyMode}
-	                     <span class="view-mode-badge" style="background-color: #238636;">Edit Mode</span>
-					{/if}
-					<span class="file-name">{appState.activeFile.title}</span>
+					<span class="file-name">{(tabs.find((t) => t.id === activeTabId)?.title || appState.activeFile?.title || t('untitled'))}</span>
 					{#if appState.dirty}
-						<span class="unsaved-dot" title="Unsaved changes">●</span>
+						<span class="unsaved-dot" title={t('unsavedChanges')}>●</span>
 					{/if}
 					{#if appState.isSaving}
-						<span class="saving">Saving...</span>
+						<span class="saving">{t('saving')}</span>
 					{:else if !appState.viewOnlyMode}
 						<span class="saved">✓</span>
 					{/if}
+					</div>
 				</div>
-			</div>
 
-			<div class="editor-preview-wrapper">
+			<TabBar
+				tabs={tabs}
+				activeId={activeTabId}
+				onselect={async (id) => {
+					activeTabId = id;
+					const tab = tabs.find((t) => t.id === id);
+					if (tab?.path) {
+						try { appState.buffer = await platform.readFile(tab.path); }
+						catch { appState.buffer = ''; }
+					} else appState.buffer = '';
+					await persistUiSettings();
+				}}
+				onclose={async (id) => {
+					const next = tabs.filter((t) => t.id !== id);
+					if (!next.length) {
+						const nid = newTabId();
+						tabs = [{ id: nid, title: 'untitled.md', path: '', dirty: false }];
+						activeTabId = nid;
+						appState.buffer = '';
+					} else {
+						tabs = next;
+						if (activeTabId === id) {
+							activeTabId = next[0].id;
+							const tab = next[0];
+							if (tab.path) {
+								try { appState.buffer = await platform.readFile(tab.path); }
+								catch { appState.buffer = ''; }
+							} else appState.buffer = '';
+						}
+					}
+					await persistUiSettings();
+				}}
+				onnew={async () => {
+					const id = newTabId();
+					tabs = [...tabs, { id, title: 'untitled.md', path: '', dirty: false }];
+					activeTabId = id;
+					appState.buffer = '';
+					await persistUiSettings();
+				}}
+			/>
+			<FindReplace
+				open={findOpen}
+				onclose={() => (findOpen = false)}
+				onfind={(q, opts) => {
+					if (typeof (window as any).find === 'function') {
+						(window as any).find(q, opts.caseSensitive, opts.backwards, true, false, true, false);
+					}
+				}}
+				onreplace={(q, rep, opts) => {
+					const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+					if (opts.all) {
+						const flags = opts.caseSensitive ? 'g' : 'gi';
+						appState.buffer = appState.buffer.replace(new RegExp(esc, flags), rep);
+					} else {
+						const idx = opts.caseSensitive
+							? appState.buffer.indexOf(q)
+							: appState.buffer.toLowerCase().indexOf(q.toLowerCase());
+						if (idx >= 0) {
+							appState.buffer = appState.buffer.slice(0, idx) + rep + appState.buffer.slice(idx + q.length);
+						}
+					}
+					tabs = tabs.map((t) => (t.id === activeTabId ? { ...t, dirty: true } : t));
+				}}
+			/>
+			<div class="editor-preview-wrapper" class:preview-light={resolvedPreviewTheme === 'light'}>
 				<div class="editor-preview-container">
-					{#if !appState.viewOnlyMode && !isMobile}
-						<!-- Desktop: Show editor when not in view-only mode -->
-						<div class="editor-pane" style="flex: 0 0 {editorWidthPercent}%;" onpointerover={handleEditorPointerOver}>
-							<Editor
-								bind:this={editorRef}
-								value={appState.buffer}
-								onchange={handleEditorChange}
-								onscroll={handleEditorScroll}
-							/>
-						</div>
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<div
-							class="resize-handle resize-handle-editor"
-							onmousedown={startEditorResize}
-							role="separator"
-							aria-orientation="vertical"
-						></div>
-					{/if}
-					{#if isMobile}
-						<!-- Mobile: Show either editor or preview based on view mode -->
-						{#if appState.viewOnlyMode}
-							<div class="preview-pane full-width" onpointerover={handlePreviewPointerOver}>
+						{#if !appState.viewOnlyMode && !isMobile}
+							<!-- Desktop: Show editor when not in view-only mode -->
+							<div class="editor-pane" style="flex: 0 0 {editorWidthPercent}%;" onpointerover={handleEditorPointerOver}>
+								<Editor
+									bind:this={editorRef}
+									value={appState.buffer}
+									onchange={handleEditorChange}
+									onscroll={handleEditorScroll}
+								/>
+							</div>
+							<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+							<div
+								class="resize-handle resize-handle-editor"
+								onmousedown={startEditorResize}
+								role="separator"
+								aria-orientation="vertical"
+							></div>
+						{:else if isMobile}
+							<!-- Mobile: Show either editor or preview based on view mode -->
+							{#if appState.viewOnlyMode}
+								<div class="preview-pane full-width" onpointerover={handlePreviewPointerOver}>
+									<Preview
+										baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
+										bind:this={previewRef}
+										content={appState.buffer}
+										onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
+										ondimensionschange={syncSectionDimensions}
+									/>
+								</div>
+							{:else}
+								<div class="editor-pane full-width" onpointerover={handleEditorPointerOver}>
+									<Editor
+										bind:this={editorRef}
+										value={appState.buffer}
+										onchange={handleEditorChange}
+										onscroll={handleEditorScroll}
+										ondimensionschange={syncSectionDimensions}
+									/>
+								</div>
+							{/if}
+						{:else}
+							<!-- Desktop: Always show preview (viewOnlyMode && !isMobile) -->
+							<div class="preview-pane" class:full-width={appState.viewOnlyMode} onpointerover={handlePreviewPointerOver}>
 								<Preview
+									baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
 									bind:this={previewRef}
 									content={appState.buffer}
 									onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
 									ondimensionschange={syncSectionDimensions}
 								/>
 							</div>
-						{:else}
-							<div class="editor-pane full-width" onpointerover={handleEditorPointerOver}>
-								<Editor
-									bind:this={editorRef}
-									value={appState.buffer}
-									onchange={handleEditorChange}
-									onscroll={handleEditorScroll}
-									ondimensionschange={syncSectionDimensions}
-								/>
-							</div>
 						{/if}
-					{:else}
-						<!-- Desktop: Always show preview -->
-						<div class="preview-pane" class:full-width={appState.viewOnlyMode} onpointerover={handlePreviewPointerOver}>
-							<Preview
-								bind:this={previewRef}
-								content={appState.buffer}
-								onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
-								ondimensionschange={syncSectionDimensions}
-							/>
-						</div>
-					{/if}
 				</div>
 
 				<!-- Table of Contents Panel (Right side) -->
@@ -952,8 +1237,8 @@
 							aria-orientation="vertical"
 						></div>
 						<div class="toc-header">
-							<span>Table of Contents</span>
-							<button class="toc-close" onclick={() => { showTOC = false; saveTOCState(); }} aria-label="Close table of contents">
+							<span>{t('tableOfContents')}</span>
+							<button class="toc-close" onclick={() => { showTOC = false; saveTOCState(); }} aria-label={t('closeTableOfContents')}>
 								<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
 									<path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
 								</svg>
@@ -972,51 +1257,74 @@
 						</nav>
 					</aside>
 				{/if}
+				{#if settingsOpen}
+					<SettingsPanel
+						open={settingsOpen}
+						bind:themeApp
+						bind:themePreview
+						onclose={() => (settingsOpen = false)}
+						onapply={async (v) => {
+							themeApp = v.themeApp;
+							themePreview = v.themePreview;
+							setLocale(v.locale);
+							applyThemes();
+							await platform.saveSettings({
+								themeApp: v.themeApp,
+								themePreview: v.themePreview,
+								locale: v.locale,
+								recentFileMax: v.recentMax,
+							});
+						}}
+					/>
+				{/if}
+				{#if recentOpen}
+					<RecentPanel
+						open={recentOpen}
+						files={recentFiles}
+						workspace={workspace}
+						onclose={() => (recentOpen = false)}
+						onclear={async () => { await platform.clearRecent(); recentFiles = []; }}
+						onopen={async (path) => {
+							try {
+								const content = await platform.readFile(path);
+								openInTab(path, basename(path), content);
+								recentOpen = false;
+								await loadRecentList();
+								await persistUiSettings();
+							} catch (e) { console.error(e); }
+						}}
+					/>
+				{/if}
 			</div>
-		{:else if !appState.isInitialized}
-			<div class="empty-state">
-				<div class="empty-content">
-					<h2>SvelteMark</h2>
-					<p>Loading...</p>
-				</div>
-			</div>
-		{:else}
-			<div class="empty-state">
-				<div class="empty-content">
-					<svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64" class="empty-icon">
-						<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-					</svg>
-					<h2>Welcome to SvelteMark</h2>
-					<p>A beautiful markdown editor with live preview</p>
-					<div class="empty-actions">
-						<button class="empty-btn primary" onclick={handleEmptyStateNewFile}>
-							<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-								<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-							</svg>
-							New File
-						</button>
-						<button class="empty-btn secondary" onclick={handleEmptyStateImportClick}>
-							<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-								<path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
-							</svg>
-							Import Backup
-						</button>
-					</div>
-					<p class="hint">Or select a file from the sidebar</p>
-				</div>
-				<input
-					type="file"
-					accept=".json"
-					bind:this={emptyStateFileInput}
-					onchange={handleEmptyStateImportFile}
-					style="display: none;"
-				/>
-			</div>
-		{/if}
 	</main>
 </div>
 
+
+<HelpPanel open={helpOpen} onclose={() => (helpOpen = false)} />
+
 <style>
+	:root, [data-theme='dark'] {
+		--bg: #0d1117;
+		--bg-elevated: #161b22;
+		--bg-hover: #21262d;
+		--fg: #e6edf3;
+		--fg-muted: #8b949e;
+		--border: #30363d;
+	}
+	[data-theme='light'], .theme-light {
+		--bg: #ffffff;
+		--bg-elevated: #f6f8fa;
+		--bg-hover: #eaeef2;
+		--fg: #1f2328;
+		--fg-muted: #656d76;
+		--border: #d0d7de;
+	}
+	.preview-light :global(.markdown-body) {
+		color-scheme: light;
+		background: #fff !important;
+		color: #1f2328;
+	}
+
 	:global(html, body) {
 		margin: 0;
 		padding: 0;
@@ -1072,15 +1380,27 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
-		transition: transform 0.2s ease, opacity 0.2s ease;
+		transition: width 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+		overflow: hidden;
 	}
 
+	/* When auto-hide is active and sidebar is hidden, collapse width to 0 */
+	.sidebar-wrapper.auto-hidden {
+		width: 0 !important;
+		min-width: 0;
+		transform: translateX(-100%);
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* Legacy hidden class for mobile */
 	.sidebar-wrapper.hidden {
 		transform: translateX(-100%);
 		opacity: 0;
 		position: absolute;
 		z-index: 100;
 		height: 100%;
+		pointer-events: none;
 	}
 
 	/* Disable transitions while resizing */
@@ -1126,9 +1446,13 @@
 	.toolbar-row.hidden {
 		transform: translateY(-100%);
 		opacity: 0;
-		position: absolute;
-		z-index: 100;
-		width: 100%;
+		pointer-events: none;
+		height: 0;
+		min-height: 0;
+		padding-top: 0;
+		padding-bottom: 0;
+		border-bottom: none;
+		transition: transform 0.2s ease, opacity 0.2s ease, height 0.2s ease, padding 0.2s ease;
 	}
 
 	.main-content {
@@ -1243,13 +1567,14 @@
 	.editor-preview-container {
 		flex: 1;
 		display: flex;
-		overflow: hidden;
+		min-width: 0; /* Prevent flex item overflow */
 	}
 
 	.editor-pane {
 		min-width: 200px;
 		overflow: hidden;
 		border-right: none;
+		flex-shrink: 0; /* Prevent editor from shrinking below min-width */
 	}
 
 	.editor-pane.full-width {
@@ -1261,12 +1586,20 @@
 		flex: 1;
 		min-width: 200px;
 		overflow: hidden;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.preview-pane.full-width {
-		flex: 1;
+		flex: 0 1 900px; /* Don't grow beyond 900px, shrink if needed */
 		max-width: 900px;
-		margin: 0 auto;
+		width: 100%;
+		align-self: center;
+	}
+
+	/* View-only mode: center the preview pane */
+	.editor-preview-container:has(.preview-pane.full-width) {
+		justify-content: center;
 	}
 
 	/* Table of Contents Panel (Right side) */
@@ -1417,7 +1750,7 @@
 		right: 0;
 		bottom: 0;
 		background: rgba(0, 0, 0, 0.5);
-		z-index: 99;
+		z-index: 1000;
 	}
 
 	.mobile-sidebar {
@@ -1426,7 +1759,7 @@
 		left: 0;
 		bottom: 0;
 		width: 280px !important;
-		z-index: 10000;
+		z-index: 1001;
 		transform: translateX(0) !important;
 		opacity: 1 !important;
 	}
@@ -1664,4 +1997,53 @@
 		border-color: #58a6ff;
 		color: #58a6ff;
 	}
+
+	/* Light theme surfaces */
+	:global([data-theme='light']) .app,
+	:global(.theme-light).app {
+		background: var(--bg, #ffffff);
+		color: var(--fg, #1f2328);
+	}
+	:global([data-theme='light']) .toolbar-row,
+	:global([data-theme='light']) .tabbar,
+	:global([data-theme='light']) .sidebar,
+	:global([data-theme='light']) .toc-panel,
+	:global([data-theme='light']) .side-panel,
+	:global([data-theme='light']) .status-area {
+		background: #f6f8fa !important;
+		color: #1f2328 !important;
+		border-color: #d0d7de !important;
+	}
+	:global([data-theme='light']) .editor-pane,
+	:global([data-theme='light']) .preview-pane {
+		background: #ffffff !important;
+		color: #1f2328 !important;
+	}
+	:global([data-theme='light']) .toc-btn,
+	:global([data-theme='light']) .sidebar-toggle-btn,
+	:global([data-theme='light']) .view-toggle-btn {
+		color: #656d76 !important;
+	}
+	:global([data-theme='light']) .toc-btn:hover,
+	:global([data-theme='light']) .toc-btn.active {
+		background: #eaeef2 !important;
+		color: #1f2328 !important;
+	}
+	:global([data-theme='light']) .tab {
+		color: #656d76 !important;
+		border-color: #d0d7de !important;
+	}
+	:global([data-theme='light']) .tab.active {
+		background: #ffffff !important;
+		color: #1f2328 !important;
+	}
+	:global([data-theme='dark']) select,
+	:global([data-theme='dark']) input,
+	:global([data-theme='dark']) option {
+		background: #0d1117;
+		color: #e6edf3;
+		border-color: #30363d;
+		color-scheme: dark;
+	}
+
 </style>

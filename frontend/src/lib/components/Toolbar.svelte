@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type Editor from './Editor.svelte';
 	import { appState } from '../appState.svelte';
+	import { t } from '../i18n';
 
 	interface Props {
 		editor?: Editor;
@@ -140,51 +141,15 @@
 		closeMenus();
 	}
 
-	async function handleExport() {
-		const backup = await appState.exportBackup();
-		const blob = new Blob([backup], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `sveltemark-backup-${new Date().toISOString().split('T')[0]}.json`;
-		a.click();
-		URL.revokeObjectURL(url);
-		closeMenus();
-	}
-
-	function handleImportClick() {
-		fileInput?.click();
-		closeMenus();
-	}
-
-	async function handleImportFile(event: Event) {
-		const target = event.target as HTMLInputElement;
-		const file = target.files?.[0];
-		if (!file) return;
-
-		const reader = new FileReader();
-		reader.onload = async (e) => {
-			try {
-				const content = e.target?.result as string;
-				await appState.importBackup(content);
-				alert('Backup imported successfully!');
-			} catch (err) {
-				alert('Failed to import backup: ' + (err as Error).message);
-			}
-		};
-		reader.readAsText(file);
-		target.value = '';
-	}
-
+	
+	
+	
 	function handlePrint() {
 		onPrint?.();
 		closeMenus();
 	}
 
-	async function handleHelp() {
-		await appState.showHelp();
-		closeMenus();
-	}
+	
 
 	function closeMenus() {
 		showInsertMenu = false;
@@ -194,33 +159,25 @@
 
 <svelte:window onclick={closeMenus} />
 
-<input 
-	type="file" 
-	accept=".json" 
-	bind:this={fileInput} 
-	onchange={handleImportFile}
-	style="display: none;"
-/>
-
 <div class="toolbar">
 	<!-- Text formatting -->
 	<div class="toolbar-group">
-		<button class="toolbar-btn" title="Bold (Ctrl+B)" onclick={handleBold} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('boldShortcut')} onclick={handleBold} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Italic (Ctrl+I)" onclick={handleItalic} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('italicShortcut')} onclick={handleItalic} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Strikethrough" onclick={handleStrikethrough} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('strikethrough')} onclick={handleStrikethrough} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Inline Code" onclick={handleCode} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('inlineCode')} onclick={handleCode} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
 			</svg>
@@ -231,13 +188,13 @@
 
 	<!-- Headings -->
 	<div class="toolbar-group">
-		<button class="toolbar-btn" title="Heading 1" onclick={() => handleHeading(1)} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('heading1')} onclick={() => handleHeading(1)} disabled={appState.viewOnlyMode}>
 			<span class="text-btn">H1</span>
 		</button>
-		<button class="toolbar-btn" title="Heading 2" onclick={() => handleHeading(2)} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('heading2')} onclick={() => handleHeading(2)} disabled={appState.viewOnlyMode}>
 			<span class="text-btn">H2</span>
 		</button>
-		<button class="toolbar-btn" title="Heading 3" onclick={() => handleHeading(3)} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('heading3')} onclick={() => handleHeading(3)} disabled={appState.viewOnlyMode}>
 			<span class="text-btn">H3</span>
 		</button>
 	</div>
@@ -246,17 +203,17 @@
 
 	<!-- Lists -->
 	<div class="toolbar-group">
-		<button class="toolbar-btn" title="Bullet List" onclick={handleBulletList} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('bulletList')} onclick={handleBulletList} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Numbered List" onclick={handleNumberedList} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('numberedList')} onclick={handleNumberedList} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Task List" onclick={handleTaskList} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('taskList')} onclick={handleTaskList} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M22 5.18L10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10L22 5.18zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8c1.57 0 3.04.46 4.28 1.25l1.45-1.45C16.1 2.67 14.13 2 12 2 6.48 2 2 6.48 2 12s4.48 10 10 10c1.73 0 3.36-.44 4.78-1.22l-1.5-1.5c-1 .46-2.11.72-3.28.72zm7-5h-3v2h3v3h2v-3h3v-2h-3v-3h-2v3z"/>
 			</svg>
@@ -267,32 +224,32 @@
 
 	<!-- Links & Media -->
 	<div class="toolbar-group">
-		<button class="toolbar-btn" title="Insert Link" onclick={handleLink} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('insertLink')} onclick={handleLink} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Insert Image" onclick={handleImage} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('insertImage')} onclick={handleImage} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Code Block" onclick={handleCodeBlock} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('codeBlock')} onclick={handleCodeBlock} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Insert Table" onclick={handleTable} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('insertTable')} onclick={handleTable} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M10 10.02h5V21h-5zM17 21h3c1.1 0 2-.9 2-2v-9h-5v11zm3-18H5c-1.1 0-2 .9-2 2v3h19V5c0-1.1-.9-2-2-2zM3 19c0 1.1.9 2 2 2h3V10.02H3V19z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Blockquote" onclick={handleQuote} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('blockquote')} onclick={handleQuote} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
 			</svg>
 		</button>
-		<button class="toolbar-btn" title="Horizontal Rule" onclick={handleHorizontalRule} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('horizontalRule')} onclick={handleHorizontalRule} disabled={appState.viewOnlyMode}>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
 				<path d="M19 13H5v-2h14v2z"/>
 			</svg>
@@ -303,10 +260,10 @@
 
 	<!-- Diagrams (Mermaid) -->
 	<div class="toolbar-group dropdown-wrapper">
-		<button 
+		<button
 			bind:this={insertBtnRef}
-			class="toolbar-btn dropdown-btn" 
-			title="Insert Diagram" 
+			class="toolbar-btn dropdown-btn"
+			title={t('insertDiagram')}
 			onclick={(e) => { e.stopPropagation(); showInsertMenu = !showInsertMenu; updateInsertMenuPos(); }}
 			disabled={appState.viewOnlyMode}
 		>
@@ -321,19 +278,19 @@
 			<div class="dropdown-menu dropdown-menu-fixed" style="top: {insertMenuPos.top}px; left: {insertMenuPos.left}px;">
 				<button class="dropdown-item" onclick={handleMermaid}>
 					<span class="dropdown-icon">📊</span>
-					Basic Diagram
+					{t('basicDiagram')}
 				</button>
 				<button class="dropdown-item" onclick={handleMermaidFlowchart}>
 					<span class="dropdown-icon">🔀</span>
-					Flowchart
+					{t('flowchart')}
 				</button>
 				<button class="dropdown-item" onclick={handleMermaidSequence}>
 					<span class="dropdown-icon">🔄</span>
-					Sequence Diagram
+					{t('sequenceDiagram')}
 				</button>
 				<button class="dropdown-item" onclick={handleMermaidPie}>
 					<span class="dropdown-icon">🥧</span>
-					Pie Chart
+					{t('pieChart')}
 				</button>
 			</div>
 		{/if}
@@ -341,10 +298,10 @@
 
 	<!-- Math -->
 	<div class="toolbar-group">
-		<button class="toolbar-btn" title="Inline Math" onclick={handleMathInline} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('inlineMath')} onclick={handleMathInline} disabled={appState.viewOnlyMode}>
 			<span class="text-btn">∑</span>
 		</button>
-		<button class="toolbar-btn" title="Math Block" onclick={handleMathBlock} disabled={appState.viewOnlyMode}>
+		<button class="toolbar-btn" title={t('mathBlock')} onclick={handleMathBlock} disabled={appState.viewOnlyMode}>
 			<span class="text-btn">∫</span>
 		</button>
 	</div>
@@ -353,10 +310,10 @@
 
 	<!-- More menu (Export, Import, Print, Auto-hide, Reset Layout) -->
 	<div class="toolbar-group dropdown-wrapper">
-		<button 
+		<button
 			bind:this={moreBtnRef}
-			class="toolbar-btn dropdown-btn" 
-			title="More options" 
+			class="toolbar-btn dropdown-btn"
+			title={t('moreOptions')}
 			onclick={(e) => { e.stopPropagation(); showMoreMenu = !showMoreMenu; updateMoreMenuPos(); }}
 		>
 			<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
@@ -364,29 +321,17 @@
 			</svg>
 		</button>
 		{#if showMoreMenu}
-			<div 
-				class="dropdown-menu dropdown-menu-fixed" 
+			<div
+				class="dropdown-menu dropdown-menu-fixed"
 				style="top: {moreMenuPos.top}px; {moreMenuPos.alignRight ? `right: ${window.innerWidth - moreMenuPos.left}px;` : `left: ${moreMenuPos.left}px;`}"
 			>
 				<button class="dropdown-item" onclick={handlePrint}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
 						<path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
 					</svg>
-					Print
+					{t('print')}
 				</button>
 				<div class="dropdown-divider"></div>
-				<button class="dropdown-item" onclick={handleExport}>
-					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-						<path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
-					</svg>
-					Export Backup
-				</button>
-				<button class="dropdown-item" onclick={handleImportClick}>
-					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-						<path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6-.33l-2.59 2.59L9 13l5-5 5 5-1.41 1.41L13 11.67V21h-2z"/>
-					</svg>
-					Import Backup
-				</button>
 				<div class="dropdown-divider"></div>
 				<button class="dropdown-item" onclick={toggleAutoHide}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -394,7 +339,7 @@
 							<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
 						{/if}
 					</svg>
-					Auto-hide UI
+					{t('autoHideUI')}
 					{#if appState.autoHideUI}
 						<span class="check-mark">✓</span>
 					{/if}
@@ -405,7 +350,7 @@
 							<path d="M10.97 4.97a.75.75 0 011.07 1.05l-3.99 4.99a.75.75 0 01-1.08.02L4.324 8.384a.75.75 0 111.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 01.02-.022z"/>
 						{/if}
 					</svg>
-					Word Wrap
+					{t('wordWrap')}
 					{#if appState.wordWrap}
 						<span class="check-mark">✓</span>
 					{/if}
@@ -416,7 +361,7 @@
 							<path d="M10.97 4.97a.75.75 0 011.07 1.05l-3.99 4.99a.75.75 0 01-1.08.02L4.324 8.384a.75.75 0 111.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 01.02-.022z"/>
 						{/if}
 					</svg>
-					Sync Scroll
+					{t('syncScroll')}
 					{#if appState.syncScrollEnabled}
 						<span class="check-mark">✓</span>
 					{/if}
@@ -425,15 +370,10 @@
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
 						<path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
 					</svg>
-					Reset Layout
+					{t('resetLayout')}
 				</button>
 				<div class="dropdown-divider"></div>
-				<button class="dropdown-item" onclick={handleHelp}>
-					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-					</svg>
-					Help / Reset Welcome
-				</button>
+				
 			</div>
 		{/if}
 	</div>

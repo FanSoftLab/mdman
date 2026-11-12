@@ -5,6 +5,7 @@
 	import { db } from '../db';
 	import FileTree from './FileTree.svelte';
 	import JSZip from 'jszip';
+	import { t } from '../i18n';
 
 	interface Props {
 		items: FileTreeItem[];
@@ -334,7 +335,7 @@
 			await addFilesToZip(item.id, zip);
 
 			if (fileCount === 0) {
-				alert('This folder is empty');
+				alert(t('emptyFolderAlert'));
 				return;
 			}
 
@@ -697,7 +698,7 @@
 				<input
 					type="text"
 					class="create-input"
-					placeholder={creatingType === 'folder' ? 'Folder name...' : 'File name...'}
+					placeholder={creatingType === 'folder' ? t('folderNamePlaceholder') : t('fileNamePlaceholder')}
 					value={createValue}
 					oninput={(e) => updateCreateValue(e.currentTarget.value)}
 					onkeydown={handleCreateKeydown}
@@ -803,7 +804,7 @@
 								<input
 									type="text"
 									class="create-input"
-									placeholder={creatingType === 'folder' ? 'Folder name...' : 'File name...'}
+									placeholder={creatingType === 'folder' ? t('folderNamePlaceholder') : t('fileNamePlaceholder')}
 									value={createValue}
 									oninput={(e) => updateCreateValue(e.currentTarget.value)}
 									onkeydown={handleCreateKeydown}
@@ -862,7 +863,7 @@
 						d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"
 					/>
 				</svg>
-				New File
+				{t('newFileMenu')}
 			</button>
 			<button class="context-item" onclick={() => createAndRename('folder', null)}>
 				<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -870,7 +871,7 @@
 						d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
 					/>
 				</svg>
-				New Folder
+				{t('newFolderMenu')}
 			</button>
 		{:else}
 			<!-- Item context menu -->
@@ -885,7 +886,7 @@
 							d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"
 						/>
 					</svg>
-					New File
+					{t('newFileMenu')}
 				</button>
 				<button
 					class="context-item"
@@ -896,14 +897,14 @@
 							d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
 						/>
 					</svg>
-					New Folder
+{t('newFolderMenu')}
 				</button>
 				<div class="context-separator"></div>
 				<button class="context-item" onclick={() => handleDownloadFile(contextMenu!.item!)}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
 						<path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
 					</svg>
-					Download as Markdown
+					{t('downloadMarkdown')}
 				</button>
 				<div class="context-separator"></div>
 				<button class="context-item" onclick={() => handleRename(contextMenu!.item!)}>
@@ -912,7 +913,7 @@
 							d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
 						/>
 					</svg>
-					Rename
+					{t('rename')}
 				</button>
 				<button class="context-item danger" onclick={() => handleDelete(contextMenu!.item!)}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -920,7 +921,7 @@
 							d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
 						/>
 					</svg>
-					Delete
+					{t('delete')}
 				</button>
 			{:else if contextMenu.item.type === 'folder'}
 				<!-- For folders, show creation options first, then rename/delete -->
@@ -930,7 +931,7 @@
 							d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"
 						/>
 					</svg>
-					New File
+					{t('newFileMenu')}
 				</button>
 				<button
 					class="context-item"
@@ -941,14 +942,14 @@
 							d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
 						/>
 					</svg>
-					New Folder
+{t('newFolderMenu')}
 				</button>
 				<div class="context-separator"></div>
 				<button class="context-item" onclick={() => handleDownloadFolder(contextMenu!.item!)}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
 						<path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
 					</svg>
-					Download as Markdown
+					{t('downloadMarkdown')}
 				</button>
 				<div class="context-separator"></div>
 				<button class="context-item" onclick={() => handleRename(contextMenu!.item!)}>
@@ -957,7 +958,7 @@
 							d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
 						/>
 					</svg>
-					Rename
+					{t('rename')}
 				</button>
 				<button class="context-item danger" onclick={() => handleDelete(contextMenu!.item!)}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -965,7 +966,7 @@
 							d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
 						/>
 					</svg>
-					Delete
+					{t('delete')}
 				</button>
 			{/if}
 		{/if}

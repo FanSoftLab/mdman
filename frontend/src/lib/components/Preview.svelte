@@ -2,15 +2,19 @@
 	import { onMount, tick } from 'svelte';
 	import { processMarkdownBlocks, diffBlocks, type MarkdownBlock } from '../markdown';
 	import mermaid from 'mermaid';
+	import * as platform from '../platform';
+	import { t } from '../i18n';
 
 	interface Props {
 		content?: string;
+		/** Absolute path of the markdown file — used to resolve relative image paths */
+		baseFilePath?: string;
 		onscroll?: (scrollInfo: { scrollTop: number; scrollHeight: number; clientHeight: number }) => void;
 		ondimensionschange?: () => void; // Called when section dimensions are measured/updated
 		class?: string;
 	}
 
-	let { content = '', onscroll, ondimensionschange, class: className = '' }: Props = $props();
+	let { content = '', baseFilePath = '', onscroll, ondimensionschange, class: className = '' }: Props = $props();
 
 	let previewContainer: HTMLDivElement;
 	let blocks = $state<MarkdownBlock[]>([]);
@@ -31,6 +35,38 @@
 	}
 
 	let sectionInfoList = $state<SectionInfo[]>([]);
+
+	async function resolveImagesInHtml(html: string, base: string): Promise<string> {
+		if (!html || !base) return html;
+		// Match src="..." in img tags (markdown and raw HTML)
+		const re = /(<img\b[^>]*?\bsrc\s*=\s*)(["'])([^"']+)(\2)/gi;
+		const matches = [...html.matchAll(re)];
+		if (!matches.length) return html;
+		let out = html;
+		// resolve unique srcs
+		const cache = new Map<string, string>();
+		for (const m of matches) {
+			const src = m[3];
+			if (cache.has(src)) continue;
+			const lower = src.toLowerCase();
+			if (lower.startsWith('http://') || lower.startsWith('https://') ||
+				lower.startsWith('data:') || lower.startsWith('blob:') || lower.startsWith('wails://')) {
+				cache.set(src, src);
+				continue;
+			}
+			try {
+				const url = await platform.resolveMediaURL(base, src);
+				cache.set(src, url || src);
+			} catch {
+				cache.set(src, src);
+			}
+		}
+		out = out.replace(re, (_full, pre, quote, src, q2) => {
+			return pre + quote + (cache.get(src) || src) + q2;
+		});
+		// also markdown-style already converted; handle src='...'
+		return out;
+	}
 
 	// Initialize mermaid and set up resize observer for dimension changes
 	onMount(() => {
@@ -68,6 +104,7 @@
 	// Debounced block processing when content changes
 	$effect(() => {
 		const currentContent = content;
+		const _baseTrack = baseFilePath; // re-resolve images when file path changes
 		
 		// Clear any pending processing
 		if (processingTimeout) {
@@ -77,14 +114,23 @@
 		// Debounce processing to avoid excessive updates
 		processingTimeout = setTimeout(async () => {
 			const newBlocks = await processMarkdownBlocks(currentContent);
-			const diffs = diffBlocks(blocks, newBlocks);
+			// Resolve relative image paths against the open markdown file
+			const base = baseFilePath;
+			const resolvedBlocks = base
+				? await Promise.all(newBlocks.map(async (b) => ({
+						...b,
+						html: await resolveImagesInHtml(b.html, base),
+					})))
+				: newBlocks;
+			const diffs = diffBlocks(blocks, resolvedBlocks);
+			const newBlocksFinal = resolvedBlocks;
 			
 			// Check if we have actual changes
 			const hasChanges = diffs.some(d => d.type !== 'keep');
 			
 			if (hasChanges) {
 				// Apply the new blocks
-				blocks = newBlocks;
+				blocks = newBlocksFinal;
 			}
 		}, 16); // ~60fps debounce
 	});
@@ -264,7 +310,7 @@
 					div.setAttribute('data-rendered', 'true');
 				} catch (err) {
 					console.error('Mermaid render error:', err);
-					div.innerHTML = `<pre class="mermaid-error">Error rendering diagram: ${err}</pre>`;
+					div.innerHTML = `<pre class="mermaid-error">${t('mermaidRenderError')}: ${err}</pre>`;
 					div.setAttribute('data-rendered', 'true');
 				}
 			}
@@ -292,7 +338,7 @@
 			const copyBtn = document.createElement('button');
 			copyBtn.className = 'copy-code-btn';
 			copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-			copyBtn.title = 'Copy code';
+			copyBtn.title = t('copyCode');
 			
 			copyBtn.addEventListener('click', async () => {
 				const code = pre.querySelector('code');

@@ -138,28 +138,14 @@ function buildFileTree(folders: Folder[], files: File[]): FileTreeItem[] {
 // Actions
 async function initialize(): Promise<void> {
     if (isInitialized) return;
-
-    await initializeDB();
-    await refreshData();
-    isInitialized = true;
-
-    // Try to restore last opened file from localStorage
-    const lastFileId = browser
-        ? localStorage.getItem('lastOpenedFileId')
-        : null;
-
-    if (lastFileId) {
-        const fileId = parseInt(lastFileId, 10);
-        const fileExists = files.some(f => f.id === fileId);
-        if (fileExists) {
-            await selectFile(fileId);
-            return;
-        }
-    }
-
-    // Auto-select first file if available
-    if (files.length > 0 && activeFileId === null) {
-        await selectFile(files[0].id!);
+    try {
+        await initializeDB();
+        await refreshData();
+    } catch (err) {
+        console.warn('IndexedDB init skipped/failed (desktop FS mode):', err);
+    } finally {
+        // Always mark ready so the desktop UI is not stuck on Loading
+        isInitialized = true;
     }
 }
 
@@ -508,6 +494,9 @@ export const appState = {
     },
     get buffer() {
         return buffer;
+    },
+    set buffer(v: string) {
+        buffer = v ?? '';
     },
     get dirty() {
         return dirty;

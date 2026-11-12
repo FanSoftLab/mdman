@@ -41,6 +41,7 @@
 	import { lintKeymap } from '@codemirror/lint';
 	import { tags } from '@lezer/highlight';
 	import { appState } from '../appState.svelte';
+	import { t } from '../i18n';
 
 	interface Props {
 		value?: string;
@@ -1007,7 +1008,7 @@
 			shortcut: 'Ctrl+B',
 			action: handleBoldSelection,
 			style: 'bold',
-			displayText: 'Bold'
+			displayText: t('fmtBold')
 		},
 		{
 			label: 'Italic',
@@ -1015,7 +1016,7 @@
 			shortcut: 'Ctrl+I',
 			action: handleItalicSelection,
 			style: 'italic',
-			displayText: 'Italic'
+			displayText: t('fmtItalic')
 		},
 		{
 			label: 'Strikethrough',
@@ -1023,7 +1024,7 @@
 			shortcut: 'Ctrl+~',
 			action: handleStrikethroughSelection,
 			style: 'strikethrough',
-			displayText: 'Strike'
+			displayText: t('fmtStrikethrough')
 		},
 		{
 			label: 'Code',
@@ -1031,7 +1032,7 @@
 			shortcut: 'Ctrl+`',
 			action: handleSmartCodeSelection,
 			style: 'code',
-			displayText: 'Code'
+			displayText: t('fmtCode')
 		}
 	];
 
@@ -1042,7 +1043,7 @@
 			shortcut: 'Ctrl+.',
 			action: handleBulletListSelection,
 			style: 'normal',
-			displayText: 'Bullet'
+			displayText: t('fmtBulletList')
 		},
 		{
 			label: 'Numbered List',
@@ -1050,7 +1051,7 @@
 			shortcut: 'Ctrl+Shift+.',
 			action: handleNumberedListSelection,
 			style: 'normal',
-			displayText: 'List'
+			displayText: t('fmtNumberedList')
 		}
 	];
 
@@ -1069,7 +1070,7 @@
 	// Markdown categories for advanced/niche options
 	const markdownCategories = [
 		{
-			name: 'Heading',
+			name: t('categoryHeading'),
 			items: [
 				{
 					label: '# Heading 1',
@@ -1077,7 +1078,7 @@
 					shortcut: 'Ctrl+Alt+1',
 					action: () => handleHeadingSelection(1),
 					style: 'normal',
-					displayText: 'H1'
+					displayText: t('fmtHeading1')
 				},
 				{
 					label: '## Heading 2',
@@ -1085,7 +1086,7 @@
 					shortcut: 'Ctrl+Alt+2',
 					action: () => handleHeadingSelection(2),
 					style: 'normal',
-					displayText: 'H2'
+					displayText: t('fmtHeading2')
 				},
 				{
 					label: '### Heading 3',
@@ -1093,7 +1094,7 @@
 					shortcut: 'Ctrl+Alt+3',
 					action: () => handleHeadingSelection(3),
 					style: 'normal',
-					displayText: 'H3'
+					displayText: t('fmtHeading3')
 				},
 				{
 					label: '#### Heading 4',
@@ -1101,7 +1102,7 @@
 					shortcut: 'Ctrl+Alt+4',
 					action: () => handleHeadingSelection(4),
 					style: 'normal',
-					displayText: 'H4'
+					displayText: t('fmtHeading4')
 				},
 				{
 					label: '##### Heading 5',
@@ -1109,7 +1110,7 @@
 					shortcut: 'Ctrl+Alt+5',
 					action: () => handleHeadingSelection(5),
 					style: 'normal',
-					displayText: 'H5'
+					displayText: t('fmtHeading5')
 				},
 				{
 					label: '###### Heading 6',
@@ -1117,12 +1118,12 @@
 					shortcut: 'Ctrl+Alt+6',
 					action: () => handleHeadingSelection(6),
 					style: 'normal',
-					displayText: 'H6'
+					displayText: t('fmtHeading6')
 				}
 			]
 		},
 		{
-			name: 'Block',
+			name: t('categoryBlock'),
 			items: [
 				{
 					label: 'Code Block',
@@ -1130,7 +1131,7 @@
 					shortcut: 'Ctrl+`',
 					action: handleCodeBlockSelection,
 					style: 'code',
-					displayText: 'Code Block'
+					displayText: t('fmtCodeBlock')
 				},
 				{
 					label: 'Task (unchecked)',
@@ -1138,7 +1139,7 @@
 					shortcut: '',
 					action: handleTaskListSelection,
 					style: 'normal',
-					displayText: 'Task'
+					displayText: t('fmtTask')
 				},
 				{
 					label: 'Blockquote',
@@ -1146,59 +1147,59 @@
 					shortcut: 'Ctrl+Q',
 					action: handleQuoteSelection,
 					style: 'normal',
-					displayText: 'Quote'
+					displayText: t('fmtBlockquote')
 				},
 				{
 					label: 'Horizontal Rule',
 					insert: '---',
 					shortcut: '',
 					style: 'normal',
-					displayText: 'HR'
+					displayText: t('fmtHorizontalRule')
 				}
 			]
 		},
 		{
-			name: 'Extra',
+			name: t('categoryExtra'),
 			items: [
 				{
 					label: 'Link',
 					insert: '[text](url)',
 					shortcut: 'Ctrl+K',
 					style: 'normal',
-					displayText: 'Link'
+					displayText: t('fmtLink')
 				},
 				{
 					label: 'Image',
 					insert: '![alt](url)',
 					shortcut: '',
 					style: 'normal',
-					displayText: 'Image'
+					displayText: t('fmtImage')
 				},
 				{
 					label: 'Table',
 					insert: '| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |',
 					shortcut: '',
 					style: 'normal',
-					displayText: 'Table'
+					displayText: t('fmtTable')
 				}
 			]
 		},
 		{
-			name: 'Other',
+			name: t('categoryOther'),
 			items: [
 				{
 					label: 'Inline Math',
 					insert: '$x = y$',
 					shortcut: '',
 					style: 'normal',
-					displayText: 'Math'
+					displayText: t('fmtInlineMath')
 				},
 				{
 					label: 'Mermaid Diagram',
 					insert: '```mermaid\ngraph TD\nA --> B\n```',
 					shortcut: '',
 					style: 'code',
-					displayText: 'Diagram'
+					displayText: t('fmtMermaidDiagram')
 				}
 			]
 		}
@@ -1585,6 +1586,59 @@
 		closeContextMenu();
 	}
 
+
+	// GitHub Light theme for CodeMirror
+	const githubLightTheme = EditorView.theme(
+		{
+			'&': {
+				color: '#1f2328',
+				backgroundColor: '#ffffff',
+				height: '100%',
+				fontSize: '14px',
+				fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
+			},
+			'.cm-content': { caretColor: '#1f2328', fontFamily: 'inherit' },
+			'.cm-cursor, .cm-dropCursor': { borderLeftColor: '#1f2328' },
+			'&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+				backgroundColor: '#b6e3ff'
+			},
+			'.cm-activeLine': { backgroundColor: '#f6f8fa' },
+			'.cm-gutters': {
+				backgroundColor: '#f6f8fa',
+				color: '#656d76',
+				border: 'none',
+				borderRight: '1px solid #d0d7de'
+			},
+			'.cm-activeLineGutter': { backgroundColor: '#eaeef2' },
+			'&::-webkit-scrollbar-track': { background: '#ffffff' },
+			'&::-webkit-scrollbar-thumb': {
+				background: '#d0d7de',
+				borderRadius: '6px',
+				border: '3px solid #ffffff'
+			}
+		},
+		{ dark: false }
+	);
+
+	const githubLightHighlightStyle = HighlightStyle.define([
+		{ tag: tags.keyword, color: '#cf222e' },
+		{ tag: [tags.name, tags.deleted, tags.character, tags.propertyName, tags.macroName], color: '#1f2328' },
+		{ tag: [tags.function(tags.variableName), tags.labelName], color: '#8250df' },
+		{ tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: '#0550ae' },
+		{ tag: [tags.typeName, tags.className, tags.number, tags.changed, tags.annotation, tags.modifier, tags.self, tags.namespace], color: '#953800' },
+		{ tag: [tags.string, tags.special(tags.string)], color: '#0a3069' },
+		{ tag: [tags.meta, tags.comment], color: '#6e7781' },
+		{ tag: tags.link, color: '#0969da', textDecoration: 'underline' },
+		{ tag: tags.heading, fontWeight: 'bold', color: '#1f2328' },
+		{ tag: tags.emphasis, fontStyle: 'italic' },
+		{ tag: tags.strong, fontWeight: 'bold' },
+		{ tag: tags.strikethrough, textDecoration: 'line-through' },
+		{ tag: tags.atom, color: '#0550ae' },
+		{ tag: tags.bool, color: '#0550ae' },
+		{ tag: tags.url, color: '#0969da' },
+		{ tag: tags.monospace, color: '#1f2328' }
+	]);
+
 	onMount(() => {
 		// Add global keyboard event listener
 		window.addEventListener('keydown', handleKeyDown);
@@ -1663,6 +1717,20 @@
 			});
 			isUpdating = false;
 		}
+	});
+
+
+	// Switch CodeMirror theme with app theme
+	$effect(() => {
+		if (!view) return;
+		const isLight = document.documentElement.dataset.theme === 'light' ||
+			document.documentElement.classList.contains('theme-light');
+		view.dispatch({
+			effects: themeCompartment.reconfigure([
+				isLight ? githubLightTheme : githubDarkTheme,
+				syntaxHighlighting(isLight ? githubLightHighlightStyle : githubDarkHighlightStyle)
+			])
+		});
 	});
 
 	// Update word wrap when setting changes
@@ -2104,7 +2172,7 @@
 						d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3z"
 					/>
 				</svg>
-				Cut
+				{t('cut')}
 			</button>
 			<button class="context-item" onclick={handleCopy}>
 				<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -2112,7 +2180,7 @@
 						d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
 					/>
 				</svg>
-				Copy
+				{t('copy')}
 			</button>
 			<button class="context-item" onclick={handleFindAndReplace}>
 				<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -2120,7 +2188,7 @@
 						d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
 					/>
 				</svg>
-				Find
+				{t('find')}
 			</button>
 			<div class="context-separator"></div>
 			<!-- Inline formatting (always available for any selection) -->
@@ -2164,7 +2232,7 @@
 						d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
 					/>
 				</svg>
-				Copy
+				{t('copy')}
 			</button>
 			<button class="context-item" onclick={handlePaste}>
 				<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -2172,7 +2240,7 @@
 						d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"
 					/>
 				</svg>
-				Paste
+				{t('paste')}
 			</button>
 			<button class="context-item" onclick={handleSelectAll}>
 				<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -2180,7 +2248,7 @@
 						d="M3 5h2V3c-1.1 0-2 .9-2 2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2c0-1.1-.9-2-2-2zM5 21v-2H3c0 1.1.9 2 2 2zm-2-4h2v-2H3v2zM9 3H7v2h2V3zm2 18h2v-2h-2v2zm8-8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2zm0-12h2V7h-2v2zm0 8h2v-2h-2v2zm-4 4h2v-2h-2v2zm0-16h2V3h-2v2zM7 17h10V7H7v10zm2-8h6v6H9V9z"
 					/>
 				</svg>
-				Select All
+				{t('selectAll')}
 			</button>
 			<div class="context-separator"></div>
 			<button class="context-item" onclick={handleFindAndReplace}>
@@ -2189,12 +2257,10 @@
 						d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
 					/>
 				</svg>
-				Find
+				{t('findAndReplace')}
 			</button>
-			<div class="context-separator"></div>
-		{/if}
 
-		<!-- Categorized advanced options (hidden when text is selected) -->
+		{/if}
 		{#if !hasSelection}
 			{#each markdownCategories as category (category.name)}
 				<div class="category-wrapper" onmouseleave={() => (hoveredCategory = null)}>
@@ -2279,8 +2345,6 @@
 		{/if}
 	</div>
 {/if}
-
-<!-- Help Overlay (Ctrl+H) -->
 {#if showHelpOverlay}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -2295,13 +2359,13 @@
 							d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
 						/>
 					</svg>
-					<h2>Keyboard Shortcuts</h2>
+					<h2>{t('helpKeyboardShortcuts')}</h2>
 				</div>
 				<button
 					class="help-close"
 					onclick={() => (showHelpOverlay = false)}
-					aria-label="Close help overlay"
-					title="Close help (Ctrl+H or Esc)"
+					aria-label={t('helpClose')}
+					title={t('helpClose')}
 				>
 					<svg viewBox="0 0 24 24" fill="currentColor">
 						<path
@@ -2319,28 +2383,28 @@
 								d="M9 3C7.9 3 7 3.9 7 5c0 .89.41 1.68 1.05 2.2l1.75 2.05c.35.42.55.95.55 1.5v3.75c0 1.1.9 2 2 2s2-.9 2-2v-3.75c0-.55.2-1.08.55-1.5l1.75-2.05C15.59 6.68 16 5.89 16 5c0-1.1-.9-2-2-2s-2 .9-2 2c0 .55-.45 1-1 1s-1-.45-1-1c0-1.1-.9-2-2-2zm6 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-8 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
 							/>
 						</svg>
-						<h3>Formatting</h3>
+						<h3>{t('helpFormatting')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+B</span>
-							<span class="help-desc">Bold</span>
+							<span class="help-desc">{t('helpDescBold')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+I</span>
-							<span class="help-desc">Italic</span>
+							<span class="help-desc">{t('helpDescItalic')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+~</span>
-							<span class="help-desc">Strikethrough</span>
+							<span class="help-desc">{t('helpDescStrikethrough')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+`</span>
-							<span class="help-desc">Inline Code</span>
+							<span class="help-desc">{t('helpDescInlineCode')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Q</span>
-							<span class="help-desc">Blockquote</span>
+							<span class="help-desc">{t('helpDescBlockquote')}</span>
 						</div>
 					</div>
 				</div>
@@ -2352,16 +2416,16 @@
 								d="M15 5H5v2h10V5zm0 8H5v2h10v-2zM5 19h10v-2H5v2zM3 14h2v-2H3v2zm0-6h2V6H3v2zm0 12h2v-2H3v2z"
 							/>
 						</svg>
-						<h3>Lists</h3>
+						<h3>{t('helpLists')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+.</span>
-							<span class="help-desc">Bullet List</span>
+							<span class="help-desc">{t('helpDescBulletList')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Shift+.</span>
-							<span class="help-desc">Numbered List</span>
+							<span class="help-desc">{t('helpDescNumberedList')}</span>
 						</div>
 					</div>
 				</div>
@@ -2371,32 +2435,32 @@
 						<svg class="help-section-icon" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M5 4v3h5.5v12h3V7H19V4z" />
 						</svg>
-						<h3>Headings</h3>
+						<h3>{t('helpHeadings')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+1</span>
-							<span class="help-desc">Heading 1</span>
+							<span class="help-desc">{t('helpDescHeading1')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+2</span>
-							<span class="help-desc">Heading 2</span>
+							<span class="help-desc">{t('helpDescHeading2')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+3</span>
-							<span class="help-desc">Heading 3</span>
+							<span class="help-desc">{t('helpDescHeading3')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+4</span>
-							<span class="help-desc">Heading 4</span>
+							<span class="help-desc">{t('helpDescHeading4')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+5</span>
-							<span class="help-desc">Heading 5</span>
+							<span class="help-desc">{t('helpDescHeading5')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Alt+6</span>
-							<span class="help-desc">Heading 6</span>
+							<span class="help-desc">{t('helpDescHeading6')}</span>
 						</div>
 					</div>
 				</div>
@@ -2408,12 +2472,12 @@
 								d="M13 11H9v2h4v-2zm-3-7H8.5C7.12 4 6 5.12 6 6.5v11C6 18.88 7.12 20 8.5 20h7c1.38 0 2.5-1.12 2.5-2.5v-11C18 5.12 16.88 4 15.5 4H15V3h-2v1h-2V3h-2v1zm7 12H8V6h7v12z"
 							/>
 						</svg>
-						<h3>Insert</h3>
+						<h3>{t('helpInsert')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+K</span>
-							<span class="help-desc">Link</span>
+							<span class="help-desc">{t('helpDescLink')}</span>
 						</div>
 					</div>
 				</div>
@@ -2425,16 +2489,16 @@
 								d="M3 5h2V3H3c-1.1 0-2 .9-2 2v2h2V5zm0 8h2v-2H3v2zm0 8h2v-2H3v2zm8-16v2h2V5h-2zm0 16h2v-2h-2v2zm8-16v2h2V5h-2zm-2 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-8 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm8 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-8 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"
 							/>
 						</svg>
-						<h3>Multi-Select</h3>
+						<h3>{t('helpMultiSelect')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+D</span>
-							<span class="help-desc">Select Next Occurrence</span>
+							<span class="help-desc">{t('helpDescSelectNext')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Shift+L</span>
-							<span class="help-desc">Select All Occurrences</span>
+							<span class="help-desc">{t('helpDescSelectAll')}</span>
 						</div>
 					</div>
 				</div>
@@ -2446,24 +2510,24 @@
 								d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
 							/>
 						</svg>
-						<h3>Other</h3>
+						<h3>{t('helpOther')}</h3>
 					</div>
 					<div class="help-items">
 						<div class="help-item">
 							<span class="help-key">Ctrl+H</span>
-							<span class="help-desc">Toggle Help</span>
+							<span class="help-desc">{t('helpDescToggleHelp')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+F</span>
-							<span class="help-desc">Find & Replace</span>
+							<span class="help-desc">{t('helpDescFindReplace')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Z</span>
-							<span class="help-desc">Undo</span>
+							<span class="help-desc">{t('helpDescUndo')}</span>
 						</div>
 						<div class="help-item">
 							<span class="help-key">Ctrl+Y</span>
-							<span class="help-desc">Redo</span>
+							<span class="help-desc">{t('helpDescRedo')}</span>
 						</div>
 					</div>
 				</div>
@@ -2474,7 +2538,7 @@
 					<svg class="help-footer-icon" viewBox="0 0 24 24" fill="currentColor">
 						<path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
 					</svg>
-					<span>Press <kbd>Ctrl+H</kbd> or <kbd>Esc</kbd> to close • Click outside to close</span>
+					<span>{@html t('helpFooter')}</span>
 				</div>
 			</div>
 		</div>
