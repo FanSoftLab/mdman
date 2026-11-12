@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=mdmark
+GenericName=Markdown Editor
+Comment=Privacy-first local Markdown editor (desktop SvelteMark)
+Exec=mdmark
+Icon=mdmark
+Terminal=false
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/x-markdown;
+StartupWMClass=mdmark
+Keywords=markdown;editor;md;notes;
