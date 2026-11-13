@@ -1,3 +1,21 @@
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
+
+# Keep WebKitGTK self-contained inside the AppImage.
+# WebKit release builds ignore WEBKIT_EXEC_PATH (gated behind DEVELOPER_MODE)
+# and always spawn helpers from the compiled-in host path, but those helpers
+# inherit this environment: LD_LIBRARY_PATH makes them load the bundled
+# libwebkit2gtk instead of the host's one. Without this, the UI process (bundled
+# WebKit) and the web process (host WebKit) run different builds and the
+# webview stays permanently black.
+# WEBKIT_EXEC_PATH additionally resolves bundled helpers on DEVELOPER_MODE
+# builds of WebKit; it is a no-op on release builds.
+for lib in "$HERE/usr/lib" "$HERE"/usr/lib/*-linux-gnu; do
+  [ -d "$lib" ] || continue
+  export LD_LIBRARY_PATH="$lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  if [ -d "$lib/webkit2gtk-4.0" ]; then
+    export WEBKIT_EXEC_PATH="$lib/webkit2gtk-4.0"
+  fi
+done
+
 exec "$HERE/usr/bin/mdmark" "$@"

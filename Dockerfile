@@ -149,6 +149,18 @@ RUN set -eu; \
       cp -f /app/build/appicon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/mdmark.png"; \
       cp -f /app/build/appicon.png "$APPDIR/mdmark.png"; \
       cp -f /app/build/AppRun "$APPDIR/AppRun"; chmod +x "$APPDIR/AppRun"; \
+      # Bundle WebKitGTK helper processes (WebProcess/NetworkProcess/GPUProcess +
+      # injected bundle). They are not in the main binary's dependency graph, so
+      # linuxdeploy never picks them up; without them the webview stays black,
+      # or WebKit silently falls back to the host's helpers (version mismatch).
+      TRIPLET="$(gcc -dumpmachine)"; \
+      for d in webkit2gtk-4.0 webkitgtk-4.0; do \
+        if [ -d "/usr/lib/$TRIPLET/$d" ]; then \
+          mkdir -p "$APPDIR/usr/lib/$TRIPLET"; \
+          cp -a "/usr/lib/$TRIPLET/$d" "$APPDIR/usr/lib/$TRIPLET/"; \
+          rm -f "$APPDIR/usr/lib/$TRIPLET/$d/MiniBrowser"; \
+        fi; \
+      done; \
       export NO_STRIP=1 APPIMAGE_EXTRACT_AND_RUN=1; \
       (cd /tmp && /usr/local/bin/linuxdeploy --appdir "$APPDIR" --output appimage \
         --exclude-library='libpango*' \
