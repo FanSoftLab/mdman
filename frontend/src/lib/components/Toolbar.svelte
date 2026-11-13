@@ -332,7 +332,6 @@
 					{t('print')}
 				</button>
 				<div class="dropdown-divider"></div>
-				<div class="dropdown-divider"></div>
 				<button class="dropdown-item" onclick={toggleAutoHide}>
 					<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
 						{#if appState.autoHideUI}
@@ -384,8 +383,9 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		padding: 8px 12px;
-		background: #161b22;
+		padding: 6px 12px;
+		height: 100%;
+		background: var(--bg-elevated, #161b22);
 		flex: 1;
 		min-width: 0;
 		overflow-x: auto;
@@ -408,7 +408,7 @@
 	.toolbar-divider {
 		width: 1px;
 		height: 20px;
-		background: #30363d;
+		background: var(--border, #30363d);
 		margin: 0 8px;
 		flex-shrink: 0;
 	}
@@ -421,18 +421,19 @@
 		height: 28px;
 		border: none;
 		background: transparent;
-		color: #c9d1d9;
+		color: var(--fg-muted, #c9d1d9);
 		cursor: pointer;
 		border-radius: 6px;
 		transition: background-color 0.1s;
 	}
 
 	.toolbar-btn:hover:not(:disabled) {
-		background: #21262d;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.toolbar-btn:active:not(:disabled) {
-		background: #30363d;
+		background: var(--border, #30363d);
 	}
 
 	.toolbar-btn:disabled {
@@ -466,8 +467,8 @@
 		top: 100%;
 		left: 0;
 		margin-top: 4px;
-		background: #161b22;
-		border: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border: 1px solid var(--border, #30363d);
 		border-radius: 6px;
 		padding: 4px 0;
 		min-width: 160px;
@@ -488,7 +489,7 @@
 		padding: 8px 12px;
 		border: none;
 		background: transparent;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 		font-size: 13px;
 		font-family: inherit;
 		text-align: left;
@@ -496,17 +497,17 @@
 	}
 
 	.dropdown-item:hover {
-		background: #21262d;
+		background: var(--bg-hover, #21262d);
 	}
 
 	.dropdown-item svg {
 		flex-shrink: 0;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 	}
 
 	.dropdown-divider {
 		height: 1px;
-		background: #30363d;
+		background: var(--border, #30363d);
 		margin: 4px 0;
 	}
 

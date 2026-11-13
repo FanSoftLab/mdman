@@ -133,15 +133,5 @@
     border-radius: 6px;
     padding: 7px 10px;
     font-size: 13px;
-    color-scheme: dark;
-  }
-  :global([data-theme='light']) select,
-  :global([data-theme='light']) input,
-  :global(.theme-light) select,
-  :global(.theme-light) input {
-    color-scheme: light;
-    background: #ffffff;
-    color: #1f2328;
-    border-color: #d0d7de;
   }
 </style>

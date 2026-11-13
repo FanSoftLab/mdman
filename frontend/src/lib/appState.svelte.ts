@@ -41,6 +41,8 @@ let viewOnlyMode = $state<boolean>(browser ? localStorage.getItem('viewOnlyMode'
 let autoHideUI = $state<boolean>(browser ? localStorage.getItem('autoHideUI') === 'true' : false);
 let wordWrap = $state<boolean>(browser ? localStorage.getItem('wordWrap') !== 'false' : true);
 let syncScrollEnabled = $state<boolean>(browser ? localStorage.getItem('syncScrollEnabled') !== 'false' : true);
+let resolvedAppTheme = $state<'dark' | 'light'>('dark');
+let resolvedPreviewTheme = $state<'dark' | 'light'>('dark');
 
 // Debounce timer
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -530,6 +532,19 @@ export const appState = {
     },
     get syncScrollEnabled() {
         return syncScrollEnabled;
+    },
+    get resolvedAppTheme() {
+        return resolvedAppTheme;
+    },
+    set resolvedAppTheme(v: 'dark' | 'light') {
+        resolvedAppTheme = v;
+        if (browser) localStorage.setItem('mdmark.themeResolved', v);
+    },
+    get resolvedPreviewTheme() {
+        return resolvedPreviewTheme;
+    },
+    set resolvedPreviewTheme(v: 'dark' | 'light') {
+        resolvedPreviewTheme = v;
     },
 
     // Actions

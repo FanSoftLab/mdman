@@ -1720,11 +1720,10 @@
 	});
 
 
-	// Switch CodeMirror theme with app theme
+	// Switch CodeMirror theme with app theme (reactive via appState)
 	$effect(() => {
 		if (!view) return;
-		const isLight = document.documentElement.dataset.theme === 'light' ||
-			document.documentElement.classList.contains('theme-light');
+		const isLight = appState.resolvedAppTheme === 'light';
 		view.dispatch({
 			effects: themeCompartment.reconfigure([
 				isLight ? githubLightTheme : githubDarkTheme,
@@ -2558,8 +2557,8 @@
 
 	.editor-context-menu {
 		position: fixed;
-		background: #161b22;
-		border: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border: 1px solid var(--border, #30363d);
 		border-radius: 6px;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 		z-index: 10000;
@@ -2577,8 +2576,8 @@
 		position: absolute;
 		top: 0;
 		left: 100%;
-		background: #161b22;
-		border: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border: 1px solid var(--border, #30363d);
 		border-radius: 6px;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 		z-index: 10001;
@@ -2598,7 +2597,7 @@
 		padding: 6px 12px;
 		background: transparent;
 		border: none;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 		font-size: 13px;
 		font-family: inherit;
 		text-align: left;
@@ -2608,7 +2607,7 @@
 	}
 
 	.context-item:hover {
-		background: #1f6feb;
+		background: var(--bg-hover, #1f6feb);
 	}
 
 	.context-item svg {
@@ -2651,7 +2650,7 @@
 
 	.item-shortcut {
 		font-size: 11px;
-		color: #6a6a6a;
+		color: var(--fg-muted, #6a6a6a);
 		margin-left: 8px;
 		text-align: right;
 		white-space: nowrap;
@@ -2660,7 +2659,7 @@
 
 	.context-separator {
 		height: 1px;
-		background: #30363d;
+		background: var(--border, #30363d);
 		margin: 4px 0;
 	}
 
@@ -2669,52 +2668,39 @@
 		font-size: 13px;
 	}
 
-	.item-bold .item-label {
-		font-weight: 600;
-		color: #89d185;
-	}
-
-	.item-italic .item-label {
-		font-style: italic;
-		color: #89d185;
-	}
-
+	.item-bold .item-label,
+	.item-italic .item-label,
 	.item-strikethrough .item-label {
-		text-decoration: line-through;
-		color: #89d185;
+		color: var(--fg, #89d185);
 	}
 
 	/* Code styling - only style the label text, not the button */
 	.item-code .item-label,
 	.item-code-block .item-label {
 		font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-		color: #79c0ff;
+		color: var(--accent, #79c0ff);
 		font-weight: 500;
 	}
 
 	.item-mermaid .item-label {
 		font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-		color: #7ee787;
+		color: var(--fg, #7ee787);
 		font-weight: 500;
 	}
 
 	.context-item-formatted:hover {
-		background: #404040;
+		background: var(--bg-hover, #404040);
 	}
 
 	.context-item-formatted.item-bold:hover .item-label,
 	.context-item-formatted.item-italic:hover .item-label,
 	.context-item-formatted.item-strikethrough:hover .item-label {
-		color: #7dcf78;
+		color: var(--fg, #7dcf78);
 	}
 
 	.context-item-formatted.item-code:hover .item-label,
 	.context-item-formatted.item-code-block:hover .item-label {
-		color: #a5d6ff;
-	}
-
-	.context-item-formatted.item-mermaid:hover .item-label {
-		color: #9be9a8;
+		color: var(--accent, #a5d6ff);
 	}
 
 	/* Help Overlay Styles - matching editor theme */
@@ -2735,8 +2721,8 @@
 	}
 
 	.help-content {
-		background: #161b22;
-		border: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border: 1px solid var(--border, #30363d);
 		border-radius: 5px;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
 		max-width: 700px;
@@ -2749,10 +2735,10 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 8px 12px;
-		border-bottom: 1px solid #30363d;
+		border-bottom: 1px solid var(--border, #30363d);
 		position: sticky;
 		top: 0;
-		background: #161b22;
+		background: var(--bg-elevated, #161b22);
 		z-index: 1;
 	}
 
@@ -2765,7 +2751,7 @@
 	.help-header-icon {
 		width: 14px;
 		height: 14px;
-		color: #58a6ff;
+		color: var(--accent, #58a6ff);
 		flex-shrink: 0;
 	}
 
@@ -2773,13 +2759,13 @@
 		margin: 0;
 		font-size: 16px;
 		font-weight: 600;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 	}
 
 	.help-close {
 		background: transparent;
 		border: none;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		cursor: pointer;
 		padding: 4px;
 		width: 20px;
@@ -2796,8 +2782,8 @@
 	}
 
 	.help-close:hover {
-		background: #30363d;
-		color: #c9d1d9;
+		background: var(--border, #30363d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.help-sections {
@@ -2809,7 +2795,7 @@
 
 	.help-section {
 		padding: 8px;
-		border-bottom: 1px solid #30363d;
+		border-bottom: 1px solid var(--border, #30363d);
 	}
 
 	.help-section:last-child {
@@ -2826,13 +2812,13 @@
 		gap: 6px;
 		margin-bottom: 6px;
 		padding-bottom: 4px;
-		border-bottom: 1px solid #30363d;
+		border-bottom: 1px solid var(--border, #30363d);
 	}
 
 	.help-section-icon {
 		width: 12px;
 		height: 12px;
-		color: #58a6ff;
+		color: var(--accent, #58a6ff);
 		flex-shrink: 0;
 	}
 
@@ -2840,7 +2826,7 @@
 		margin: 0;
 		font-size: 13px;
 		font-weight: 600;
-		color: #58a6ff;
+		color: var(--accent, #58a6ff);
 		text-transform: uppercase;
 		letter-spacing: 0.3px;
 	}
@@ -2860,21 +2846,21 @@
 	}
 
 	.help-item:hover {
-		background: #30363d;
+		background: var(--bg-hover, #30363d);
 	}
 
 	.help-key {
 		font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 		font-size: 13px;
 		font-weight: 500;
-		color: #79c0ff;
+		color: var(--accent, #79c0ff);
 		min-width: fit-content;
 		white-space: nowrap;
 	}
 
 	.help-desc {
 		font-size: 14px;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 		margin-left: auto;
 		padding-left: 12px;
 		text-align: right;
@@ -2883,10 +2869,10 @@
 	.help-footer {
 		padding: 8px 12px;
 		text-align: center;
-		border-top: 1px solid #30363d;
-		color: #8b949e;
+		border-top: 1px solid var(--border, #30363d);
+		color: var(--fg-muted, #8b949e);
 		font-size: 13px;
-		background: #161b22;
+		background: var(--bg-elevated, #161b22);
 		position: sticky;
 		bottom: 0;
 	}
@@ -2901,7 +2887,7 @@
 	.help-footer-icon {
 		width: 12px;
 		height: 12px;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		flex-shrink: 0;
 	}
 
@@ -2909,7 +2895,7 @@
 		font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 		font-size: 12px;
 		font-weight: 500;
-		color: #79c0ff;
+		color: var(--accent, #79c0ff);
 		margin: 0 2px;
 	}
 
@@ -2919,16 +2905,16 @@
 	}
 
 	.help-content::-webkit-scrollbar-track {
-		background: #161b22;
+		background: var(--bg-elevated, #161b22);
 	}
 
 	.help-content::-webkit-scrollbar-thumb {
-		background: #30363d;
+		background: var(--border, #30363d);
 		border-radius: 4px;
 	}
 
 	.help-content::-webkit-scrollbar-thumb:hover {
-		background: #484f58;
+		background: var(--scrollbar-thumb-hover, #484f58);
 	}
 
 	/* CodeMirror Search Panel Styling */
@@ -2940,7 +2926,7 @@
 		margin: 0 4px !important;
 		white-space: nowrap !important;
 		font-size: 12px !important;
-		color: #d4d4d4 !important;
+		color: var(--fg, #d4d4d4) !important;
 	}
 
 	:global(.cm-search label input[type='checkbox']) {

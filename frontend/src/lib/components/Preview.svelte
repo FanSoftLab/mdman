@@ -3,7 +3,10 @@
 	import { processMarkdownBlocks, diffBlocks, type MarkdownBlock } from '../markdown';
 	import mermaid from 'mermaid';
 	import * as platform from '../platform';
+	import { appState } from '../appState.svelte';
 	import { t } from '../i18n/index.svelte';
+	import markdownLightCss from 'github-markdown-css/github-markdown-light.css?inline';
+	import hljsLightCss from 'highlight.js/styles/github.css?inline';
 
 	interface Props {
 		content?: string;
@@ -68,17 +71,41 @@
 		return out;
 	}
 
-	// Initialize mermaid and set up resize observer for dimension changes
-	onMount(() => {
+	// Light stylesheets for the preview (github-markdown + highlight.js), toggled by preview theme
+	let markdownLightStyle: HTMLStyleElement | null = null;
+	let hljsLightStyle: HTMLStyleElement | null = null;
+
+	function ensureLightStylesheets() {
+		if (markdownLightStyle && hljsLightStyle) return;
+		if (!markdownLightStyle) {
+			markdownLightStyle = document.createElement('style');
+			markdownLightStyle.media = 'not all';
+			markdownLightStyle.textContent = markdownLightCss;
+			document.head.appendChild(markdownLightStyle);
+		}
+		if (!hljsLightStyle) {
+			hljsLightStyle = document.createElement('style');
+			hljsLightStyle.media = 'not all';
+			hljsLightStyle.textContent = hljsLightCss;
+			document.head.appendChild(hljsLightStyle);
+		}
+	}
+
+	function applyMermaidTheme(theme: 'dark' | 'light') {
 		mermaid.initialize({
 			startOnLoad: false,
-			theme: 'dark',
+			theme: theme === 'light' ? 'default' : 'dark',
 			securityLevel: 'loose',
 			fontFamily: 'inherit',
 			htmlLabels: false,
 			markdownAutoWrap: true,
 			wrap: true,
 		});
+	}
+
+	// Initialize mermaid and set up resize observer for dimension changes
+	onMount(() => {
+		applyMermaidTheme(appState.resolvedPreviewTheme);
 
 		// Use ResizeObserver to detect any size changes (images, dynamic content, etc.)
 		let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -99,6 +126,26 @@
 			resizeObserver.disconnect();
 			if (resizeTimeout) clearTimeout(resizeTimeout);
 		};
+	});
+
+	// Toggle light preview stylesheets when the preview theme changes
+	$effect(() => {
+		const isLight = appState.resolvedPreviewTheme === 'light';
+		ensureLightStylesheets();
+		if (markdownLightStyle) markdownLightStyle.media = isLight ? 'all' : 'not all';
+		if (hljsLightStyle) hljsLightStyle.media = isLight ? 'all' : 'not all';
+	});
+
+	// Re-initialize mermaid and re-render diagrams when the preview theme changes
+	$effect(() => {
+		const theme = appState.resolvedPreviewTheme;
+		if (!previewContainer) return;
+		applyMermaidTheme(theme);
+		const rendered = previewContainer.querySelectorAll('.mermaid[data-rendered]');
+		if (rendered.length > 0) {
+			rendered.forEach((div) => div.removeAttribute('data-rendered'));
+			void renderMermaidDiagrams();
+		}
 	});
 
 	// Debounced block processing when content changes
@@ -662,10 +709,10 @@
 						}
 					}
 					
-					// Restore dark theme with wrapping enabled
+					// Restore the current preview theme after printing
 					mermaid.initialize({
 						startOnLoad: false,
-						theme: 'dark',
+						theme: appState.resolvedPreviewTheme === 'light' ? 'default' : 'dark',
 						securityLevel: 'loose',
 						fontFamily: 'inherit',
 						htmlLabels: false,
@@ -718,8 +765,6 @@
 		overflow-y: auto;
 		padding: 20px;
 		padding-top: 0;
-		background: #0d1117;
-		color: #c9d1d9;
 	}
 
 	/* Block wrapper - seamless rendering */
@@ -727,92 +772,41 @@
 		display: contents;
 	}
 
-	/* Dark scrollbar - matches editor */
+	/* Scrollbar - follows preview theme */
 	.preview-container::-webkit-scrollbar {
 		width: 12px;
 		height: 12px;
 	}
 
 	.preview-container::-webkit-scrollbar-track {
-		background: #0d1117;
+		background: var(--bg, #0d1117);
 	}
 
 	.preview-container::-webkit-scrollbar-thumb {
-		background: #30363d;
+		background: var(--border, #30363d);
 		border-radius: 6px;
-		border: 3px solid #0d1117;
+		border: 3px solid var(--bg, #0d1117);
 	}
 
 	.preview-container::-webkit-scrollbar-thumb:hover {
-		background: #484f58;
+		background: var(--scrollbar-thumb-hover, #484f58);
 	}
 
-	/* GitHub markdown dark theme overrides */
-	.preview-container :global(h1),
-	.preview-container :global(h2),
-	.preview-container :global(h3),
-	.preview-container :global(h4),
-	.preview-container :global(h5),
-	.preview-container :global(h6) {
-		color: #c9d1d9;
-		border-bottom-color: #21262d;
+	:global(html.preview-theme-light) .preview-container::-webkit-scrollbar-track {
+		background: #f6f8fa;
 	}
 
-	.preview-container :global(a) {
-		color: #58a6ff;
+	:global(html.preview-theme-light) .preview-container::-webkit-scrollbar-thumb {
+		background: #d0d7de;
+		border: 3px solid #f6f8fa;
 	}
 
-	.preview-container :global(code) {
-		background: #161b22;
-		color: #c9d1d9;
-		padding: 0.2em 0.4em;
-		border-radius: 6px;
+	:global(html.preview-theme-light) .preview-container::-webkit-scrollbar-thumb:hover {
+		background: #c8ced4;
 	}
 
-	.preview-container :global(pre) {
-		background: #161b22;
-		border: 1px solid #30363d;
-		border-radius: 6px;
-		padding: 16px;
-		overflow-x: auto;
-	}
-
-	.preview-container :global(pre code) {
-		background: transparent;
-		padding: 0;
-	}
-
-	.preview-container :global(blockquote) {
-		color: #8b949e;
-		border-left-color: #3b434b;
-	}
-
-	.preview-container :global(table) {
-		border-collapse: collapse;
-		width: 100%;
-	}
-
-	.preview-container :global(th),
-	.preview-container :global(td) {
-		border: 1px solid #30363d;
-		padding: 8px 12px;
-	}
-
-	.preview-container :global(th) {
-		background: #161b22;
-	}
-
-	.preview-container :global(tr:nth-child(even)) {
-		background: #161b22;
-	}
-
-	.preview-container :global(hr) {
-		border-color: #21262d;
-	}
-
-	/* Mermaid diagram styling */
+	/* Mermaid diagram layout (colors come from mermaid theme) */
 	.preview-container :global(.mermaid) {
-		background: #161b22;
 		padding: 0;
 		border-radius: 6px;
 		margin: 0 0 16px 0;
@@ -825,13 +819,13 @@
 
 	.preview-container :global(.mermaid-error) {
 		color: #f85149;
-		background: #161b22;
+		background: var(--bg-elevated, #161b22);
 		padding: 16px;
 		border-radius: 6px;
 		border: 1px solid #f85149;
 	}
 
-	/* KaTeX styling */
+	/* KaTeX layout */
 	/* Display math ($$...$$) - centered on its own line */
 	.preview-container :global(.katex-display) {
 		display: block;
@@ -850,11 +844,6 @@
 	/* Inline math ($...$) - flows with text */
 	.preview-container :global(.katex:not(.katex-display .katex)) {
 		font-size: 1.1em;
-	}
-
-	/* KaTeX color for dark theme */
-	.preview-container :global(.katex) {
-		color: #c9d1d9;
 	}
 
 	/* Task list styling */
@@ -877,10 +866,10 @@
 		top: 8px;
 		right: 8px;
 		padding: 6px 8px;
-		background: #30363d;
-		border: 1px solid #484f58;
+		background: var(--bg-elevated, #30363d);
+		border: 1px solid var(--border, #484f58);
 		border-radius: 6px;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		cursor: pointer;
 		opacity: 0;
 		transition: opacity 0.2s, background 0.2s, color 0.2s;
@@ -895,8 +884,8 @@
 	}
 
 	.preview-container :global(.copy-code-btn:hover) {
-		background: #484f58;
-		color: #c9d1d9;
+		background: var(--bg-hover, #484f58);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.preview-container :global(.copy-code-btn.copied) {

@@ -6,6 +6,9 @@
   --fg: #e6edf3;
   --fg-muted: #8b949e;
   --border: #30363d;
+  --accent: #58a6ff;
+  --accent-soft: #1f6feb22;
+  --scrollbar-thumb-hover: #484f58;
   color-scheme: dark;
 }
 html.theme-light,
@@ -16,6 +19,9 @@ html[data-theme="light"] {
   --fg: #1f2328;
   --fg-muted: #656d76;
   --border: #d0d7de;
+  --accent: #0969da;
+  --accent-soft: #0969da1a;
+  --scrollbar-thumb-hover: #c8ced4;
   color-scheme: light;
 }
 html, body {

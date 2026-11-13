@@ -36,8 +36,6 @@
 	let tocItems = $state<TOCItem[]>([]);
 	let themeApp = $state<'dark' | 'light' | 'system'>('system');
 	let themePreview = $state<'dark' | 'light' | 'system'>('system');
-	let resolvedAppTheme = $state<'dark' | 'light'>('dark');
-	let resolvedPreviewTheme = $state<'dark' | 'light'>('dark');
 	let settingsOpen = $state(false);
 	let helpOpen = $state(false);
 	let recentOpen = $state(false);
@@ -160,16 +158,17 @@
 		return pref;
 	}
 	function applyThemes() {
-		resolvedAppTheme = resolveTheme(themeApp);
-		resolvedPreviewTheme = resolveTheme(themePreview);
-		document.documentElement.dataset.theme = resolvedAppTheme;
-		document.documentElement.classList.toggle('theme-light', resolvedAppTheme === 'light');
-		document.documentElement.classList.toggle('theme-dark', resolvedAppTheme === 'dark');
-		document.documentElement.style.colorScheme = resolvedAppTheme;
-		document.body?.classList.toggle('theme-light', resolvedAppTheme === 'light');
-		document.body?.classList.toggle('theme-dark', resolvedAppTheme === 'dark');
+		appState.resolvedAppTheme = resolveTheme(themeApp);
+		appState.resolvedPreviewTheme = resolveTheme(themePreview);
+		const appTheme = appState.resolvedAppTheme;
+		document.documentElement.dataset.theme = appTheme;
+		document.documentElement.classList.toggle('theme-light', appTheme === 'light');
+		document.documentElement.classList.toggle('theme-dark', appTheme === 'dark');
+		document.documentElement.style.colorScheme = appTheme;
+		document.body?.classList.toggle('theme-light', appTheme === 'light');
+		document.body?.classList.toggle('theme-dark', appTheme === 'dark');
 		// Toggle markdown CSS class for preview
-		document.documentElement.classList.toggle('preview-theme-light', resolvedPreviewTheme === 'light');
+		document.documentElement.classList.toggle('preview-theme-light', appState.resolvedPreviewTheme === 'light');
 	}
 	function newTabId() {
 		return 'tab-' + Math.random().toString(36).slice(2, 10);
@@ -979,7 +978,7 @@
 	onmouseup={handleResizeEnd}
 />
 
-<div class="app" data-theme={resolvedAppTheme} class:theme-light={resolvedAppTheme === "light"} class:auto-hide={appState.autoHideUI} class:resizing={isResizingSidebar || isResizingEditor} class:mobile={isMobile} class:sidebar-collapsed={!showDesktopSidebar && !isMobile}>
+<div class="app" data-theme={appState.resolvedAppTheme} class:theme-light={appState.resolvedAppTheme === "light"} class:auto-hide={appState.autoHideUI} class:resizing={isResizingSidebar || isResizingEditor} class:mobile={isMobile} class:sidebar-collapsed={!showDesktopSidebar && !isMobile}>
 		<!-- Mobile sidebar overlay -->
 		{#if isMobile && showMobileSidebar}
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -1090,7 +1089,7 @@
 					{#if appState.viewOnlyMode}
 						<span class="view-mode-badge">{t('viewOnly')}</span>
 					{:else}
-						<span class="view-mode-badge" style="background-color: #238636;">{t('editMode')}</span>
+						<span class="view-mode-badge edit-mode">{t('editMode')}</span>
 					{/if}
 					<span class="file-name">{(tabs.find((t) => t.id === activeTabId)?.title || appState.activeFile?.title || t('untitled'))}</span>
 					{#if appState.dirty}
@@ -1168,10 +1167,10 @@
 					tabs = tabs.map((t) => (t.id === activeTabId ? { ...t, dirty: true } : t));
 				}}
 			/>
-			<div class="editor-preview-wrapper" class:preview-light={resolvedPreviewTheme === 'light'}>
+			<div class="editor-preview-wrapper">
 				<div class="editor-preview-container">
 						{#if !appState.viewOnlyMode && !isMobile}
-							<!-- Desktop: Show editor when not in view-only mode -->
+							<!-- Desktop: split view — editor and preview side by side -->
 							<div class="editor-pane" style="flex: 0 0 {editorWidthPercent}%;" onpointerover={handleEditorPointerOver}>
 								<Editor
 									bind:this={editorRef}
@@ -1187,6 +1186,15 @@
 								role="separator"
 								aria-orientation="vertical"
 							></div>
+							<div class="preview-pane" onpointerover={handlePreviewPointerOver}>
+								<Preview
+									baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
+									bind:this={previewRef}
+									content={appState.buffer}
+									onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
+									ondimensionschange={syncSectionDimensions}
+								/>
+							</div>
 						{:else if isMobile}
 							<!-- Mobile: Show either editor or preview based on view mode -->
 							{#if appState.viewOnlyMode}
@@ -1301,28 +1309,6 @@
 <HelpPanel open={helpOpen} onclose={() => (helpOpen = false)} />
 
 <style>
-	:root, [data-theme='dark'] {
-		--bg: #0d1117;
-		--bg-elevated: #161b22;
-		--bg-hover: #21262d;
-		--fg: #e6edf3;
-		--fg-muted: #8b949e;
-		--border: #30363d;
-	}
-	[data-theme='light'], .theme-light {
-		--bg: #ffffff;
-		--bg-elevated: #f6f8fa;
-		--bg-hover: #eaeef2;
-		--fg: #1f2328;
-		--fg-muted: #656d76;
-		--border: #d0d7de;
-	}
-	.preview-light :global(.markdown-body) {
-		color-scheme: light;
-		background: #fff !important;
-		color: #1f2328;
-	}
-
 	:global(html, body) {
 		margin: 0;
 		padding: 0;
@@ -1357,7 +1343,7 @@
 	}
 
 	:global(*::-webkit-scrollbar-thumb:hover) {
-		background: #484f58;
+		background: var(--scrollbar-thumb-hover, #484f58);
 	}
 
 	.app {
@@ -1370,6 +1356,8 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
+		background: var(--bg, #0d1117);
+		color: var(--fg, #e6edf3);
 	}
 
 	/* Sidebar wrapper for auto-hide */
@@ -1420,7 +1408,7 @@
 
 	.resize-handle:hover,
 	.resize-handle:active {
-		background: #58a6ff;
+		background: var(--accent, #58a6ff);
 		width: 4px;
 	}
 
@@ -1432,12 +1420,12 @@
 	}
 
 	.resize-handle-editor {
-		background: #30363d;
+		background: var(--border, #30363d);
 	}
 
 	.resize-handle-editor:hover,
 	.resize-handle-editor:active {
-		background: #58a6ff;
+		background: var(--accent, #58a6ff);
 	}
 
 	/* Toolbar auto-hide */
@@ -1464,8 +1452,8 @@
 	.toolbar-row {
 		display: flex;
 		align-items: center;
-		background: #161b22;
-		border-bottom: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border-bottom: 1px solid var(--border, #30363d);
 		height: 41px;
 		min-height: 41px;
 		box-sizing: border-box;
@@ -1506,8 +1494,8 @@
 	}
 
 	.view-toggle-btn:hover {
-		background: #21262d;
-		color: #c9d1d9;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.view-toggle-btn.active {
@@ -1533,8 +1521,12 @@
 		font-weight: 500;
 	}
 
+	.view-mode-badge.edit-mode {
+		background: #238636;
+	}
+
 	.file-name {
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		max-width: 200px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -1556,7 +1548,7 @@
 
 	/* Editor/Preview wrapper with TOC */
 	.editor-preview-wrapper {
-		background-color: #0d1117;
+		background-color: var(--bg, #0d1117);
 		flex: 1;
 		display: flex;
 		overflow: hidden;
@@ -1604,8 +1596,8 @@
 	.toc-panel {
 		min-width: 150px;
 		max-width: 400px;
-		background: #161b22;
-		border-left: 1px solid #30363d;
+		background: var(--bg-elevated, #161b22);
+		border-left: 1px solid var(--border, #30363d);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -1626,7 +1618,7 @@
 	}
 
 	.toc-resize-handle:hover {
-		background: #58a6ff;
+		background: var(--accent, #58a6ff);
 	}
 
 	.toc-header {
@@ -1636,8 +1628,8 @@
 		padding: 12px;
 		font-size: 12px;
 		font-weight: 600;
-		color: #8b949e;
-		border-bottom: 1px solid #30363d;
+		color: var(--fg-muted, #8b949e);
+		border-bottom: 1px solid var(--border, #30363d);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 	}
@@ -1651,15 +1643,15 @@
 		padding: 0;
 		border: none;
 		background: transparent;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		cursor: pointer;
 		border-radius: 4px;
 		transition: background-color 0.15s, color 0.15s;
 	}
 
 	.toc-close:hover {
-		background: #21262d;
-		color: #c9d1d9;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.toc-list {
@@ -1674,7 +1666,7 @@
 		padding: 6px 12px;
 		border: none;
 		background: transparent;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 		font-size: 13px;
 		text-align: left;
 		cursor: pointer;
@@ -1685,22 +1677,22 @@
 	}
 
 	.toc-item:hover {
-		background: #21262d;
-		color: #58a6ff;
+		background: var(--bg-hover, #21262d);
+		color: var(--accent, #58a6ff);
 	}
 
 	.toc-item.active {
-		background: #1f6feb22;
-		color: #58a6ff;
-		border-left: 2px solid #58a6ff;
+		background: var(--accent-soft, #1f6feb22);
+		color: var(--accent, #58a6ff);
+		border-left: 2px solid var(--accent, #58a6ff);
 	}
 
 	.toc-level-1 { padding-left: 12px; font-weight: 600; }
 	.toc-level-2 { padding-left: 24px; }
 	.toc-level-3 { padding-left: 36px; font-size: 12px; }
-	.toc-level-4 { padding-left: 48px; font-size: 12px; color: #8b949e; }
-	.toc-level-5 { padding-left: 60px; font-size: 11px; color: #8b949e; }
-	.toc-level-6 { padding-left: 72px; font-size: 11px; color: #8b949e; }
+	.toc-level-4 { padding-left: 48px; font-size: 12px; color: var(--fg-muted, #8b949e); }
+	.toc-level-5 { padding-left: 60px; font-size: 11px; color: var(--fg-muted, #8b949e); }
+	.toc-level-6 { padding-left: 72px; font-size: 11px; color: var(--fg-muted, #8b949e); }
 
 	.toc-level-1.active { padding-left: 10px; }
 	.toc-level-2.active { padding-left: 22px; }
@@ -1719,20 +1711,20 @@
 		padding: 0;
 		border: none;
 		background: transparent;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		cursor: pointer;
 		border-radius: 4px;
 		transition: background-color 0.15s, color 0.15s;
 	}
 
 	.toc-btn:hover:not(:disabled) {
-		background: #21262d;
-		color: #c9d1d9;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.toc-btn.active {
-		background: #21262d;
-		color: #58a6ff;
+		background: var(--bg-hover, #21262d);
+		color: var(--accent, #58a6ff);
 	}
 
 	.toc-btn:disabled {
@@ -1775,7 +1767,7 @@
 		padding: 0;
 		border: none;
 		background: transparent;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 		cursor: pointer;
 		border-radius: 6px;
 		margin-right: 8px;
@@ -1783,7 +1775,7 @@
 	}
 
 	.mobile-menu-btn:hover {
-		background: #21262d;
+		background: var(--bg-hover, #21262d);
 	}
 
 	/* Sidebar toggle button */
@@ -1796,7 +1788,7 @@
 		padding: 0;
 		border: none;
 		background: transparent;
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		cursor: pointer;
 		border-radius: 6px;
 		margin-left: 8px;
@@ -1809,16 +1801,16 @@
 	}
 
 	.sidebar-toggle-btn:hover {
-		background: #21262d;
-		color: #c9d1d9;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
 	}
 
 	.sidebar-toggle-btn:active {
-		background: #30363d;
+		background: var(--border, #30363d);
 	}
 
 	.sidebar-collapsed .sidebar-toggle-btn {
-		color: #58a6ff;
+		color: var(--accent, #58a6ff);
 	}
 
 	/* Responsive breakpoints */
@@ -1924,7 +1916,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: #0d1117;
+		background: var(--bg, #0d1117);
 	}
 
 	.empty-content {
@@ -1932,7 +1924,7 @@
 	}
 
 	.empty-icon {
-		color: #30363d;
+		color: var(--border, #30363d);
 		margin-bottom: 16px;
 	}
 
@@ -1940,11 +1932,11 @@
 		font-size: 24px;
 		font-weight: 400;
 		margin-bottom: 8px;
-		color: #c9d1d9;
+		color: var(--fg, #c9d1d9);
 	}
 
 	.empty-content p {
-		color: #8b949e;
+		color: var(--fg-muted, #8b949e);
 		margin: 8px 0;
 	}
 
@@ -1985,105 +1977,14 @@
 	}
 
 	.empty-btn.secondary {
-		background: #21262d;
-		color: #c9d1d9;
-		border-color: #30363d;
+		background: var(--bg-hover, #21262d);
+		color: var(--fg, #c9d1d9);
+		border-color: var(--border, #30363d);
 	}
 
 	.empty-btn.secondary:hover {
-		background: #30363d;
-		border-color: #58a6ff;
-		color: #58a6ff;
-	}
-
-	/* Light theme surfaces */
-	:global([data-theme='light']) .app,
-	:global(.theme-light).app {
-		background: var(--bg, #ffffff);
-		color: var(--fg, #1f2328);
-	}
-	:global([data-theme='light']) .toolbar-row,
-	:global([data-theme='light']) .tabbar,
-	:global([data-theme='light']) .sidebar,
-	:global([data-theme='light']) .toc-panel,
-	:global([data-theme='light']) .side-panel,
-	:global([data-theme='light']) .status-area {
-		background: #f6f8fa !important;
-		color: #1f2328 !important;
-		border-color: #d0d7de !important;
-	}
-	:global([data-theme='light']) .editor-pane,
-	:global([data-theme='light']) .preview-pane {
-		background: #ffffff !important;
-		color: #1f2328 !important;
-	}
-	:global([data-theme='light']) .toc-btn,
-	:global([data-theme='light']) .sidebar-toggle-btn,
-	:global([data-theme='light']) .view-toggle-btn {
-		color: #656d76 !important;
-	}
-	:global([data-theme='light']) .toc-btn:hover,
-	:global([data-theme='light']) .toc-btn.active {
-		background: #eaeef2 !important;
-		color: #1f2328 !important;
-	}
-	:global([data-theme='light']) .tab {
-		color: #656d76 !important;
-		border-color: #d0d7de !important;
-	}
-	:global([data-theme='light']) .tab.active {
-		background: #ffffff !important;
-		color: #1f2328 !important;
-	}
-	:global([data-theme='dark']) select,
-	:global([data-theme='dark']) input,
-	:global([data-theme='dark']) option {
-		background: #0d1117;
-		color: #e6edf3;
-		border-color: #30363d;
-		color-scheme: dark;
-	}
-
-
-	:global(html.theme-light),
-	:global(html[data-theme='light']) {
-		--bg: #ffffff;
-		--bg-elevated: #f6f8fa;
-		--bg-hover: #eaeef2;
-		--fg: #1f2328;
-		--fg-muted: #656d76;
-		--border: #d0d7de;
-		color-scheme: light;
-	}
-	:global(html.theme-dark),
-	:global(html[data-theme='dark']) {
-		--bg: #0d1117;
-		--bg-elevated: #161b22;
-		--bg-hover: #21262d;
-		--fg: #e6edf3;
-		--fg-muted: #8b949e;
-		--border: #30363d;
-		color-scheme: dark;
-	}
-	.app, .toolbar-row, .main-content, .sidebar-wrapper, .editor-pane, .preview-pane {
-		background: var(--bg);
-		color: var(--fg);
-	}
-	.toolbar-row, .tabbar {
-		background: var(--bg-elevated) !important;
-		border-color: var(--border) !important;
-	}
-	:global(html.preview-theme-light) .preview-pane :global(.markdown-body),
-	.preview-light :global(.markdown-body) {
-		color-scheme: light !important;
-		background: #ffffff !important;
-		color: #1f2328 !important;
-	}
-	:global(html.preview-theme-light) .preview-pane :global(.markdown-body pre),
-	:global(html.preview-theme-light) .preview-pane :global(.markdown-body code),
-	.preview-light :global(.markdown-body pre),
-	.preview-light :global(.markdown-body code) {
-		background: #f6f8fa !important;
-		color: #1f2328 !important;
+		background: var(--border, #30363d);
+		border-color: var(--accent, #58a6ff);
+		color: var(--accent, #58a6ff);
 	}
 </style>
