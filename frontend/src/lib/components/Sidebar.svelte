@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '../i18n';
+	import { t } from '../i18n/index.svelte';
 	import * as platform from '../platform';
 	import type { FileNode } from '../platform';
 

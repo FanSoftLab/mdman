@@ -58,8 +58,9 @@ func main() {
 		OnStartup: app.startup,
 		OnDomReady: func(ctx context.Context) {
 			app.DomReady(ctx)
-			// Some WMs ignore immediate SetPosition; re-apply shortly after show
-			time.AfterFunc(150*time.Millisecond, func() { app.DomReady(ctx) })
+			// Wait until GTK has a real GdkWindow before touching geometry.
+			time.AfterFunc(500*time.Millisecond, func() { app.RestoreWindow() })
+			time.AfterFunc(1500*time.Millisecond, func() { app.RestoreWindow() })
 		},
 		OnShutdown:    app.Shutdown,
 		OnBeforeClose: app.BeforeClose,
@@ -67,7 +68,8 @@ func main() {
 			app,
 		},
 		Linux: &linux.Options{
-			WebviewGpuPolicy: linux.WebviewGpuPolicyAlways,
+			// OnDemand avoids black webview on some NVIDIA/Wayland setups
+			WebviewGpuPolicy: linux.WebviewGpuPolicyOnDemand,
 		},
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "com.localtools.mdmark",

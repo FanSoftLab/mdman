@@ -5,7 +5,7 @@
 	import { db } from '../db';
 	import FileTree from './FileTree.svelte';
 	import JSZip from 'jszip';
-	import { t } from '../i18n';
+	import { t } from '../i18n/index.svelte';
 
 	interface Props {
 		items: FileTreeItem[];

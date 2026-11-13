@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type Editor from './Editor.svelte';
 	import { appState } from '../appState.svelte';
-	import { t } from '../i18n';
+	import { t } from '../i18n/index.svelte';
 
 	interface Props {
 		editor?: Editor;

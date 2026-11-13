@@ -3,7 +3,7 @@
 	const browser = typeof window !== 'undefined';
 	import { appState, Editor, Preview, Toolbar } from './lib';
 	import { extractTableOfContents } from './lib/markdown';
-	import { t, initLocale, setLocale, getLocale, onLocaleChange, type Locale } from './lib/i18n';
+	import { t, initLocale, setLocale, getLocale, onLocaleChange, type Locale } from './lib/i18n/index.svelte';
 	import * as platform from './lib/platform';
 	import type { RecentFile } from './lib/platform';
 	import Sidebar from './lib/components/Sidebar.svelte';
@@ -351,7 +351,7 @@
 		await loadRecentList();
 		const session = (settings.session as any) || (await platform.getSession());
 		if (session && Array.isArray(session.tabs) && session.tabs.length) {
-			tabs = session.tabs.map((t: any) => ({ id: t.id || newTabId(), title: t.title || t('untitled'), path: t.path || '', dirty: false }));
+			tabs = session.tabs.map((tab: any) => ({ id: tab.id || newTabId(), title: tab.title || t('untitled'), path: tab.path || '', dirty: false }));
 			activeTabId = session.activeTabId || tabs[0]?.id || '';
 			const active = tabs.find((t) => t.id === activeTabId);
 			if (active?.path) {
@@ -368,10 +368,7 @@
 		const pending = await platform.consumePendingFiles();
 		if (pending?.length) await openPaths(pending);
 		platform.onOpenFiles((paths) => { void openPaths(paths); });
-		const snap = () => { void platform.snapshotWindow(); void persistUiSettings(); };
-		const snapTimer = setInterval(snap, 5000);
-		window.addEventListener('beforeunload', snap);
-		document.addEventListener('visibilitychange', () => { if (document.hidden) snap(); });
+		// Window geometry is persisted only on app close (Go BeforeClose/Shutdown).
 
 		window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyThemes);
 
@@ -1057,8 +1054,9 @@
 						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.992l2.028.812a.75.75 0 0 1-.557 1.392l-2.5-1A.751.751 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/></svg>
 					</button>
 					<button class="toc-btn" class:active={settingsOpen} title={t('settings')} onclick={() => { settingsOpen = !settingsOpen; recentOpen = false; }}>
-						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
-							<path d="M8 0a.75.75 0 0 1 .75.75v.52a6.5 6.5 0 0 1 1.68.5l.37-.37a.75.75 0 0 1 1.06 0l.73.73a.75.75 0 0 1 0 1.06l-.37.37c.10.10.0.2.5 1.68h.52a.75.75 0 0 1 0 1.5h-.52a6.5 6.5 0 0 1-.5 1.68l.37.37a.75.75 0 0 1 0 1.06l-.73.73a.75.75 0 0 1-1.06 0l-.37-.37a6.5 6.5 0 0 1-1.68.5v.52a.75.75 0 0 1-1.5 0v-.52a6.5 6.5 0 0 1-1.68-.5l-.37.37a.75.75 0 0 1-1.06 0l-.73-.73a.75.75 0 0 1 0-1.06l.37-.37a6.5 6.5 0 0 1-.5-1.68H.75a.75.75 0 0 1 0-1.5h.52a6.5 6.5 0 0 1 .5-1.68l-.37-.37a.75.75 0 0 1 0-1.06l.73-.73a.75.75 0 0 1 1.06 0l.37.37a6.5 6.5 0 0 1 1.68-.5V.75A.75.75 0 0 1 8 0Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+							<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
 						</svg>
 					</button>
 					<button class="toc-btn" class:active={helpOpen} title={t('help')} onclick={() => { helpOpen = !helpOpen; }}>
@@ -1331,8 +1329,8 @@
 		height: 100%;
 		width: 100%;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-		background: #0d1117;
-		color: #c9d1d9;
+		background: var(--bg, #0d1117);
+		color: var(--fg, #e6edf3);
 		overflow: hidden;
 	}
 
@@ -1349,13 +1347,13 @@
 	}
 
 	:global(*::-webkit-scrollbar-track) {
-		background: #0d1117;
+		background: var(--bg, #0d1117);
 	}
 
 	:global(*::-webkit-scrollbar-thumb) {
-		background: #30363d;
+		background: var(--border, #30363d);
 		border-radius: 6px;
-		border: 3px solid #0d1117;
+		border: 3px solid var(--bg, #0d1117);
 	}
 
 	:global(*::-webkit-scrollbar-thumb:hover) {
@@ -2046,4 +2044,46 @@
 		color-scheme: dark;
 	}
 
+
+	:global(html.theme-light),
+	:global(html[data-theme='light']) {
+		--bg: #ffffff;
+		--bg-elevated: #f6f8fa;
+		--bg-hover: #eaeef2;
+		--fg: #1f2328;
+		--fg-muted: #656d76;
+		--border: #d0d7de;
+		color-scheme: light;
+	}
+	:global(html.theme-dark),
+	:global(html[data-theme='dark']) {
+		--bg: #0d1117;
+		--bg-elevated: #161b22;
+		--bg-hover: #21262d;
+		--fg: #e6edf3;
+		--fg-muted: #8b949e;
+		--border: #30363d;
+		color-scheme: dark;
+	}
+	.app, .toolbar-row, .main-content, .sidebar-wrapper, .editor-pane, .preview-pane {
+		background: var(--bg);
+		color: var(--fg);
+	}
+	.toolbar-row, .tabbar {
+		background: var(--bg-elevated) !important;
+		border-color: var(--border) !important;
+	}
+	:global(html.preview-theme-light) .preview-pane :global(.markdown-body),
+	.preview-light :global(.markdown-body) {
+		color-scheme: light !important;
+		background: #ffffff !important;
+		color: #1f2328 !important;
+	}
+	:global(html.preview-theme-light) .preview-pane :global(.markdown-body pre),
+	:global(html.preview-theme-light) .preview-pane :global(.markdown-body code),
+	.preview-light :global(.markdown-body pre),
+	.preview-light :global(.markdown-body code) {
+		background: #f6f8fa !important;
+		color: #1f2328 !important;
+	}
 </style>

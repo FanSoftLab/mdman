@@ -4,3 +4,5 @@ build/bin/
 *.exe
 *.AppImage
 .DS_Store
+.openidea
+.kilo

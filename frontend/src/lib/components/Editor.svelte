@@ -41,7 +41,7 @@
 	import { lintKeymap } from '@codemirror/lint';
 	import { tags } from '@lezer/highlight';
 	import { appState } from '../appState.svelte';
-	import { t } from '../i18n';
+	import { t } from '../i18n/index.svelte';
 
 	interface Props {
 		value?: string;

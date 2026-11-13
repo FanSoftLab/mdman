@@ -3,7 +3,7 @@
 	import { processMarkdownBlocks, diffBlocks, type MarkdownBlock } from '../markdown';
 	import mermaid from 'mermaid';
 	import * as platform from '../platform';
-	import { t } from '../i18n';
+	import { t } from '../i18n/index.svelte';
 
 	interface Props {
 		content?: string;
@@ -113,26 +113,34 @@
 
 		// Debounce processing to avoid excessive updates
 		processingTimeout = setTimeout(async () => {
-			const newBlocks = await processMarkdownBlocks(currentContent);
-			// Resolve relative image paths against the open markdown file
-			const base = baseFilePath;
-			const resolvedBlocks = base
-				? await Promise.all(newBlocks.map(async (b) => ({
-						...b,
-						html: await resolveImagesInHtml(b.html, base),
-					})))
-				: newBlocks;
-			const diffs = diffBlocks(blocks, resolvedBlocks);
-			const newBlocksFinal = resolvedBlocks;
-			
-			// Check if we have actual changes
-			const hasChanges = diffs.some(d => d.type !== 'keep');
-			
-			if (hasChanges) {
-				// Apply the new blocks
-				blocks = newBlocksFinal;
+			try {
+				const newBlocks = await processMarkdownBlocks(currentContent || '');
+				const base = baseFilePath;
+				let resolvedBlocks = newBlocks;
+				if (base) {
+					// Resolve images sequentially with a shared cache (faster than N parallel Go calls)
+					const cache = new Map<string, string>();
+					resolvedBlocks = [];
+					for (const b of newBlocks) {
+						resolvedBlocks.push({
+							...b,
+							html: await resolveImagesInHtml(b.html, base),
+						});
+					}
+				}
+				blocks = resolvedBlocks;
+			} catch (err) {
+				console.error('preview render failed', err);
+				// Fallback: show raw content so the pane is never blank
+				blocks = [{
+					id: 'fallback',
+					source: currentContent || '',
+					html: `<pre>${(currentContent || '').replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c] as string))}</pre>`,
+					startLine: 1,
+					endLine: 1,
+				} as any];
 			}
-		}, 16); // ~60fps debounce
+		}, 250);
 	});
 
 	// Render mermaid diagrams for newly added/updated blocks

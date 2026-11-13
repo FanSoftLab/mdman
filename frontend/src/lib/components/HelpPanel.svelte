@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '../i18n';
+  import { t } from '../i18n/index.svelte';
 
   interface Props { open?: boolean; onclose?: () => void; }
   let { open = false, onclose }: Props = $props();

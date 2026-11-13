@@ -59,6 +59,10 @@ ARG BUILD_COMMIT=unknown
 ARG BUILD_SOURCE=local
 ARG PLATFORMS=linux/amd64
 ARG BUILD_APPIMAGE=true
+# BuildKit target-platform args: auto-set by buildx, but must be redeclared
+# per-stage before any RUN can read them (set -eu makes unset access fatal).
+ARG TARGETOS
+ARG TARGETPLATFORM
 WORKDIR /app
 
 COPY --from=wails-cli /go/bin/wails /usr/local/bin/wails
@@ -127,34 +131,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # AppImage packaging (Linux only)
 RUN set -eu; \
-    if [ "$BUILD_APPIMAGE" != "true" ]; then \
+    if [ "$TARGETOS" != "linux" ]; then \
       echo "Skipping AppImage"; \
-      exit 0; \
-    fi; \
-    ICON="build/appicon.png"; \
-    if [ ! -f "$ICON" ]; then \
-      mkdir -p build; \
-      printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > "$ICON"; \
-    fi; \
-    if [ ! -f build/AppRun ]; then \
-      printf '%s\n' '#!/bin/sh' 'HERE="$(dirname "$(readlink -f "$0")")"' 'exec "$HERE/usr/bin/mdmark" "$@"' > build/AppRun; \
-      chmod +x build/AppRun; \
-    fi; \
-    if [ ! -f build/mdmark.desktop ]; then \
-      printf '%s\n' \
-        '[Desktop Entry]' \
-        'Type=Application' \
-        'Name=mdmark' \
-        'GenericName=Markdown Editor' \
-        'Comment=Privacy-first local Markdown editor (desktop SvelteMark)' \
-        'Exec=mdmark %F' \
-        'Icon=mdmark' \
-        'Terminal=false' \
-        'Categories=Office;TextEditor;Utility;' \
-        'MimeType=text/markdown;text/x-markdown;text/plain;' \
-        'StartupWMClass=mdmark' > build/mdmark.desktop; \
-    fi; \
-    for platform in $(printf '%s' "$PLATFORMS" | tr ',' ' '); do \
+    else \
+    for platform in $(printf '%s' "$TARGETPLATFORM" | tr ',' ' '); do \
       target_os="${platform%/*}"; target_arch="${platform#*/}"; \
       [ "$target_os" = "linux" ] || continue; \
       BIN="/app/build/bin/mdmark-linux-${target_arch}"; \
@@ -162,20 +142,45 @@ RUN set -eu; \
         echo "No binary for AppImage: $BIN"; continue; \
       fi; \
       APPDIR="/tmp/mdmark-${target_arch}.AppDir"; \
-      rm -rf "$APPDIR"; \
-      mkdir -p "${APPDIR}/usr/bin"; \
-      cp "$BIN" "${APPDIR}/usr/bin/mdmark"; \
-      chmod +x "${APPDIR}/usr/bin/mdmark"; \
-      cp "$ICON" "${APPDIR}/mdmark.png"; \
-      ln -sf mdmark.png "${APPDIR}/.DirIcon"; \
-      cp build/mdmark.desktop "${APPDIR}/mdmark.desktop"; \
-      cp build/AppRun "${APPDIR}/AppRun"; \
-      chmod +x "${APPDIR}/AppRun"; \
+      rm -rf "$APPDIR"; mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps"; \
+      cp -f "$BIN" "$APPDIR/usr/bin/mdmark"; chmod +x "$APPDIR/usr/bin/mdmark"; \
+      cp -f /app/build/mdmark.desktop "$APPDIR/usr/share/applications/mdmark.desktop"; \
+      cp -f /app/build/mdmark.desktop "$APPDIR/mdmark.desktop"; \
+      cp -f /app/build/appicon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/mdmark.png"; \
+      cp -f /app/build/appicon.png "$APPDIR/mdmark.png"; \
+      cp -f /app/build/AppRun "$APPDIR/AppRun"; chmod +x "$APPDIR/AppRun"; \
       export NO_STRIP=1 APPIMAGE_EXTRACT_AND_RUN=1; \
-      (cd /tmp && /usr/local/bin/linuxdeploy --appdir "$APPDIR" --output appimage) || \
-        (cd /tmp && /usr/local/bin/linuxdeploy --appdir "$APPDIR" --output appimage --appimage-extract-and-run) || true; \
+      (cd /tmp && /usr/local/bin/linuxdeploy --appdir "$APPDIR" --output appimage \
+        --exclude-library='libpango*' \
+        --exclude-library='libharfbuzz*' \
+        --exclude-library='libgtk-3*' \
+        --exclude-library='libgdk-3*' \
+        --exclude-library='libglib-2.0*' \
+        --exclude-library='libgio-2.0*' \
+        --exclude-library='libgobject-2.0*' \
+        --exclude-library='libgmodule-2.0*' \
+        --exclude-library='libcairo*' \
+        --exclude-library='libfontconfig*' \
+        --exclude-library='libfreetype*' \
+      ) || \
+      (cd /tmp && /usr/local/bin/linuxdeploy --appdir "$APPDIR" --output appimage --appimage-extract-and-run \
+        --exclude-library='libpango*' \
+        --exclude-library='libharfbuzz*' \
+        --exclude-library='libgtk-3*' \
+        --exclude-library='libgdk-3*' \
+        --exclude-library='libglib-2.0*' \
+      ) || true; \
+      # Final purge: never ship host-sensitive text stack inside the AppImage
+      for pat in 'libpango*' 'libharfbuzz*' 'libgtk-3*' 'libgdk-3*' 'libglib-2.0.so*' 'libgio-2.0.so*' 'libgobject-2.0.so*'; do \
+        find "$APPDIR" -name "$pat" -type f -delete 2>/dev/null || true; \
+      done; \
+      # If linuxdeploy already produced an AppImage, rebuild from cleaned AppDir when needed
       AI="$(find /tmp -maxdepth 1 -name 'mdmark*.AppImage' -type f | head -1)"; \
       if [ -n "$AI" ]; then \
+        # Re-pack cleaned AppDir if libs were deleted after packaging
+        if find "$APPDIR/usr/lib" -name 'libpango*' 2>/dev/null | grep -q .; then \
+          find "$APPDIR" -name 'libpango*' -o -name 'libharfbuzz*' | xargs -r rm -f; \
+        fi; \
         mv "$AI" "/app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
         chmod +x "/app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
         echo "AppImage: /app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
@@ -183,7 +188,8 @@ RUN set -eu; \
         echo "WARNING: AppImage not produced for $target_arch"; \
       fi; \
       rm -rf "$APPDIR"; \
-    done
+    done; \
+    fi
 
 FROM scratch AS exporter
 COPY --from=builder /app/build/bin /build/bin

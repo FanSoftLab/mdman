@@ -53,6 +53,7 @@ type App struct {
 		X, Y  int
 		valid bool
 	}
+	windowLoaded bool
 	pendingMu    sync.Mutex
 	pendingFiles []string
 }
@@ -89,7 +90,8 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) DomReady(ctx context.Context) {
 	a.ctx = ctx
-	a.restoreWindowState()
+	// Do not touch window geometry here — GTK widget may not be ready yet.
+	// Restore is scheduled from main after delays.
 }
 
 func (a *App) Shutdown(ctx context.Context) {
@@ -218,9 +220,10 @@ func (a *App) loadWindowState() {
 		return
 	}
 	var st WindowState
-	if json.Unmarshal(data, &st) == nil {
+	if json.Unmarshal(data, &st) == nil && st.Width >= 200 && st.Height >= 200 {
 		a.windowStateMu.Lock()
 		a.lastWindow = st
+		a.windowLoaded = true
 		a.windowStateMu.Unlock()
 	}
 }
@@ -242,9 +245,15 @@ func (a *App) persistWindowState() {
 	if a.ctx == nil {
 		return
 	}
+	// Guard against GTK criticals when the native window is not ready.
+	defer func() { recover() }()
+
 	maximised := runtime.WindowIsMaximised(a.ctx)
 	w, h := runtime.WindowGetSize(a.ctx)
 	x, y := runtime.WindowGetPosition(a.ctx)
+	if w < 200 || h < 200 {
+		return
+	}
 
 	state := WindowState{
 		Maximised: maximised,
@@ -264,10 +273,6 @@ func (a *App) persistWindowState() {
 			if a.lastWindow.Height > 0 {
 				state.Height = a.lastWindow.Height
 			}
-		} else {
-			// Don't save position when maximised if we don't have a valid normal position
-			state.X = 0
-			state.Y = 0
 		}
 		a.windowStateMu.Unlock()
 	} else {
@@ -289,32 +294,32 @@ func (a *App) persistWindowState() {
 	_ = os.WriteFile(a.windowPath(), data, 0644)
 }
 
+
 func (a *App) restoreWindowState() {
 	if a.ctx == nil {
 		return
 	}
-	// Use cached state loaded from disk at startup (not defaults-only)
+	defer func() { recover() }()
+
 	a.windowStateMu.Lock()
 	st := a.lastWindow
+	loaded := a.windowLoaded
 	a.windowStateMu.Unlock()
-	if st.Width < 200 || st.Height < 200 {
-		return // nothing useful saved yet
+	if !loaded || st.Width < 200 || st.Height < 200 {
+		return
 	}
 
-	// Restore size first (some WMs need this before position/maximise)
+	// Apply size first; position only when not maximised.
 	runtime.WindowSetSize(a.ctx, st.Width, st.Height)
-
-	// Restore position only if coordinates look valid (not 0,0 which often means "default" or "maximised")
-	// Allow negative coordinates (multi-monitor setups) but reject 0,0 unless explicitly saved as such
-	if st.X != 0 || st.Y != 0 {
-		runtime.WindowSetPosition(a.ctx, st.X, st.Y)
-	}
-
-	// Restore maximised state last (after size/position)
 	if st.Maximised {
 		runtime.WindowMaximise(a.ctx)
+		return
 	}
+	runtime.WindowUnmaximise(a.ctx)
+	// Skip 0,0 only when it likely means "unset"; still apply multi-monitor negatives.
+	runtime.WindowSetPosition(a.ctx, st.X, st.Y)
 }
+
 
 func (a *App) GetWorkspace() string {
 	a.settingsMu.RLock()
@@ -435,7 +440,7 @@ func (a *App) resolvePath(rel string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !strings.HasPrefix(abs, ws) {
+	if abs != ws && !strings.HasPrefix(abs, ws+string(os.PathSeparator)) {
 		return "", os.ErrPermission
 	}
 	return abs, nil
@@ -608,8 +613,11 @@ func (a *App) ConsumePendingFiles() []string {
 
 // SnapshotWindow is called from the frontend periodically / on blur.
 func (a *App) SnapshotWindow() {
+	// Called periodically from the frontend; never panic into the UI thread.
+	defer func() { recover() }()
 	a.persistWindowState()
 }
+
 
 // ResolveMediaURL resolves a relative media path against the markdown file directory
 // and returns a data URL so the webview can display local images.
@@ -670,4 +678,9 @@ func (a *App) ResolveMediaURL(markdownFile string, mediaPath string) (string, er
 	}
 	enc := base64.StdEncoding.EncodeToString(data)
 	return "data:" + mime + ";base64," + enc, nil
+}
+
+// RestoreWindow is a public alias used from main after DomReady.
+func (a *App) RestoreWindow() {
+	a.restoreWindowState()
 }
