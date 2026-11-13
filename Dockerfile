@@ -93,9 +93,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       flags="-s -w"; \
       if [ "$BUILD_MODE" = "debug" ]; then flags=""; fi; \
       ldflags="$flags -X main.version=$APP_VERSION -X main.buildTime=$BUILD_TIME -X main.buildCommit=$BUILD_COMMIT -X main.buildSource=$BUILD_SOURCE"; \
-      outname="mdmark-${target_os}-${target_arch}${suffix}"; \
+      outname="mdman-${target_os}-${target_arch}${suffix}"; \
       dest="/app/build/bin/${outname}"; \
-      echo "Building mdmark for $target_os/$target_arch"; \
+      echo "Building mdman for $target_os/$target_arch"; \
       CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" \
         wails build -platform "$target_os/$target_arch" -ldflags "$ldflags" -o "$outname"; \
       # Locate binary (Wails may write to build/bin/ or CWD)
@@ -103,12 +103,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       for cand in \
         "build/bin/${outname}" \
         "${outname}" \
-        "build/bin/mdmark${suffix}" \
-        "build/bin/mdmark"; do \
+        "build/bin/mdman${suffix}" \
+        "build/bin/mdman"; do \
         if [ -f "$cand" ]; then src="$cand"; break; fi; \
       done; \
       if [ -z "$src" ]; then \
-        src="$(find build -type f -name 'mdmark*' 2>/dev/null | head -1 || true)"; \
+        src="$(find build -type f -name 'mdman*' 2>/dev/null | head -1 || true)"; \
       fi; \
       if [ -z "$src" ] || [ ! -f "$src" ]; then \
         echo "ERROR: binary not found for $target_os/$target_arch" >&2; \
@@ -137,17 +137,17 @@ RUN set -eu; \
     for platform in $(printf '%s' "$TARGETPLATFORM" | tr ',' ' '); do \
       target_os="${platform%/*}"; target_arch="${platform#*/}"; \
       [ "$target_os" = "linux" ] || continue; \
-      BIN="/app/build/bin/mdmark-linux-${target_arch}"; \
+      BIN="/app/build/bin/mdman-linux-${target_arch}"; \
       if [ ! -f "$BIN" ]; then \
         echo "No binary for AppImage: $BIN"; continue; \
       fi; \
-      APPDIR="/tmp/mdmark-${target_arch}.AppDir"; \
+      APPDIR="/tmp/mdman-${target_arch}.AppDir"; \
       rm -rf "$APPDIR"; mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps"; \
-      cp -f "$BIN" "$APPDIR/usr/bin/mdmark"; chmod +x "$APPDIR/usr/bin/mdmark"; \
-      cp -f /app/build/mdmark.desktop "$APPDIR/usr/share/applications/mdmark.desktop"; \
-      cp -f /app/build/mdmark.desktop "$APPDIR/mdmark.desktop"; \
-      cp -f /app/build/appicon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/mdmark.png"; \
-      cp -f /app/build/appicon.png "$APPDIR/mdmark.png"; \
+      cp -f "$BIN" "$APPDIR/usr/bin/mdman"; chmod +x "$APPDIR/usr/bin/mdman"; \
+      cp -f /app/build/mdman.desktop "$APPDIR/usr/share/applications/mdman.desktop"; \
+      cp -f /app/build/mdman.desktop "$APPDIR/mdman.desktop"; \
+      cp -f /app/build/appicon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/mdman.png"; \
+      cp -f /app/build/appicon.png "$APPDIR/mdman.png"; \
       cp -f /app/build/AppRun "$APPDIR/AppRun"; chmod +x "$APPDIR/AppRun"; \
       # Bundle WebKitGTK helper processes (WebProcess/NetworkProcess/GPUProcess +
       # injected bundle). They are not in the main binary's dependency graph, so
@@ -187,15 +187,15 @@ RUN set -eu; \
         find "$APPDIR" -name "$pat" -type f -delete 2>/dev/null || true; \
       done; \
       # If linuxdeploy already produced an AppImage, rebuild from cleaned AppDir when needed
-      AI="$(find /tmp -maxdepth 1 -name 'mdmark*.AppImage' -type f | head -1)"; \
+      AI="$(find /tmp -maxdepth 1 -name 'mdman*.AppImage' -type f | head -1)"; \
       if [ -n "$AI" ]; then \
         # Re-pack cleaned AppDir if libs were deleted after packaging
         if find "$APPDIR/usr/lib" -name 'libpango*' 2>/dev/null | grep -q .; then \
           find "$APPDIR" -name 'libpango*' -o -name 'libharfbuzz*' | xargs -r rm -f; \
         fi; \
-        mv "$AI" "/app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
-        chmod +x "/app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
-        echo "AppImage: /app/build/bin/mdmark-linux-${target_arch}.AppImage"; \
+        mv "$AI" "/app/build/bin/mdman-linux-${target_arch}.AppImage"; \
+        chmod +x "/app/build/bin/mdman-linux-${target_arch}.AppImage"; \
+        echo "AppImage: /app/build/bin/mdman-linux-${target_arch}.AppImage"; \
       else \
         echo "WARNING: AppImage not produced for $target_arch"; \
       fi; \

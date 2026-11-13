@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=mdmark
+Name=mdman
 GenericName=Markdown Editor
 Comment=Privacy-first local Markdown editor (desktop SvelteMark)
-Exec=mdmark %F
-Icon=mdmark
+Exec=mdman %F
+Icon=mdman
 Terminal=false
 Categories=Office;TextEditor;Utility;
 MimeType=text/markdown;text/x-markdown;text/plain;
-StartupWMClass=mdmark
+StartupWMClass=mdman
 Keywords=markdown;editor;md;notes;

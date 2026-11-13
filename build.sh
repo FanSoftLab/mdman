@@ -23,7 +23,7 @@ APPIMAGE=true
 
 usage() {
   cat <<'USAGE'
-mdmark Docker/BuildKit Builder (desktop only)
+mdman Docker/BuildKit Builder (desktop only)
 
 Usage: ./build.sh [options]
   -mode MODE       release (default) or debug
@@ -103,7 +103,7 @@ DOCKER_CACHE_OPTS=()
 cleanup() { rm -rf "$OUT_DIR"; }
 trap cleanup EXIT
 
-echo "mdmark build: version=$VERSION mode=$MODE platforms=$PLATFORMS tests=$RUN_TESTS appimage=$APPIMAGE"
+echo "mdman build: version=$VERSION mode=$MODE platforms=$PLATFORMS tests=$RUN_TESTS appimage=$APPIMAGE"
 echo "Building entirely in Docker with BuildKit..."
 
 docker build \

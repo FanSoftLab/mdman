@@ -46,12 +46,16 @@
 	let activeTabId = $state('boot');
 	let localeTick = $state(0);
 
-	// Load TOC state from localStorage
-	function loadTOCState() {
+	// Load TOC state from localStorage. Returns the saved value or null when absent.
+	function loadTOCState(): boolean | null {
 		if (browser) {
 			const savedTOC = localStorage.getItem('showTOC');
-			if (savedTOC !== null) showTOC = savedTOC === 'true';
+			if (savedTOC !== null) {
+				showTOC = savedTOC === 'true';
+				return showTOC;
+			}
 		}
+		return null;
 	}
 
 	// Save TOC state to localStorage
@@ -108,17 +112,17 @@
 		}
 	});
 
-	// Auto-hide UI effect: hide sidebar/toolbar when enabled, show when disabled
+	// Auto-hide UI effect: hide sidebar/toolbar when enabled, show when disabled.
+	// Note: never touch showDesktopSidebar here — it is the user's persisted choice.
 	$effect(() => {
 		if (appState.autoHideUI) {
 			// When auto-hide is enabled, hide the UI elements
 			showSidebar = false;
 			showToolbar = false;
 		} else {
-			// When auto-hide is disabled, show the UI elements and restore sidebar state
+			// When auto-hide is disabled, show the UI elements
 			showSidebar = true;
 			showToolbar = true;
-			showDesktopSidebar = true;
 		}
 	});
 
@@ -203,6 +207,7 @@
 			viewOnlyMode: appState.viewOnlyMode,
 			sidebarWidth,
 			editorWidthPercent,
+			tocWidth,
 			session: {
 				tabs: tabs.map((t) => ({ id: t.id, title: t.title, path: t.path })),
 				activeTabId,
@@ -289,18 +294,46 @@
 	let isResizingEditor = $state(false);
 	let isResizingTOC = $state(false);
 
-	// Load saved layout from localStorage
-	function loadLayoutState() {
-		if (browser) {
-			const savedSidebar = localStorage.getItem('sidebarWidth');
-			const savedEditor = localStorage.getItem('editorWidthPercent');
-			const savedShowSidebar = localStorage.getItem('showDesktopSidebar');
-			const savedTocWidth = localStorage.getItem('tocWidth');
-			if (savedSidebar) sidebarWidth = Number(savedSidebar);
-			if (savedEditor) editorWidthPercent = Number(savedEditor);
-			if (savedShowSidebar !== null) showDesktopSidebar = savedShowSidebar === 'true';
-			if (savedTocWidth) tocWidth = Number(savedTocWidth);
+	// Load saved layout from localStorage (source of truth: written on every change)
+	function clamp(value: number, min: number, max: number, fallback: number): number {
+		if (!Number.isFinite(value)) return fallback;
+		return Math.max(min, Math.min(max, value));
+	}
+
+	function loadLayoutState(): {
+		sidebarWidth?: number;
+		editorWidthPercent?: number;
+		showDesktopSidebar?: boolean;
+		tocWidth?: number;
+	} {
+		const found: {
+			sidebarWidth?: number;
+			editorWidthPercent?: number;
+			showDesktopSidebar?: boolean;
+			tocWidth?: number;
+		} = {};
+		if (!browser) return found;
+		const rawSidebar = localStorage.getItem('sidebarWidth');
+		const rawEditor = localStorage.getItem('editorWidthPercent');
+		const savedShowSidebar = localStorage.getItem('showDesktopSidebar');
+		const rawTocWidth = localStorage.getItem('tocWidth');
+		if (rawSidebar !== null) {
+			sidebarWidth = clamp(Number(rawSidebar), 150, 500, DEFAULT_SIDEBAR_WIDTH);
+			found.sidebarWidth = sidebarWidth;
 		}
+		if (rawEditor !== null) {
+			editorWidthPercent = clamp(Number(rawEditor), 20, 80, DEFAULT_EDITOR_PERCENT);
+			found.editorWidthPercent = editorWidthPercent;
+		}
+		if (savedShowSidebar !== null) {
+			showDesktopSidebar = savedShowSidebar === 'true';
+			found.showDesktopSidebar = showDesktopSidebar;
+		}
+		if (rawTocWidth !== null) {
+			tocWidth = clamp(Number(rawTocWidth), 150, 400, DEFAULT_TOC_WIDTH);
+			found.tocWidth = tocWidth;
+		}
+		return found;
 	}
 
 	// Save layout state to localStorage
@@ -325,15 +358,16 @@
 			localStorage.removeItem('showDesktopSidebar');
 			localStorage.removeItem('tocWidth');
 		}
+		void persistUiSettings();
 	}
 
 	onMount(async () => {
-		loadLayoutState();
-		loadTOCState();
+		const layoutFromLS = loadLayoutState();
+		const tocFromLS = loadTOCState();
 		await appState.initialize();
 
 		try {
-		const savedLoc = localStorage.getItem('mdmark.locale');
+		const savedLoc = localStorage.getItem('mdman.locale');
 		initLocale(savedLoc || undefined);
 		onLocaleChange(() => { localeTick++; });
 		const settings = await platform.getSettings();
@@ -342,11 +376,14 @@
 		if (settings.locale === 'en' || settings.locale === 'uk') setLocale(settings.locale as Locale);
 		applyThemes();
 		workspace = (await platform.getWorkspace()) || '';
-		if (typeof settings.showTOC === 'boolean') showTOC = settings.showTOC as boolean;
-		if (typeof settings.showDesktopSidebar === 'boolean') showDesktopSidebar = settings.showDesktopSidebar as boolean;
-		if (typeof settings.viewOnlyMode === 'boolean') appState.setViewOnlyMode(settings.viewOnlyMode as boolean);
-		if (typeof settings.sidebarWidth === 'number') sidebarWidth = settings.sidebarWidth as number;
-		if (typeof settings.editorWidthPercent === 'number') editorWidthPercent = settings.editorWidthPercent as number;
+		// UI layout state: localStorage (written on every change) wins;
+		// settings.json is only a fallback for keys missing in localStorage.
+		if (tocFromLS === null && typeof settings.showTOC === 'boolean') showTOC = settings.showTOC as boolean;
+		if (layoutFromLS.showDesktopSidebar === undefined && typeof settings.showDesktopSidebar === 'boolean') showDesktopSidebar = settings.showDesktopSidebar as boolean;
+		if (browser && localStorage.getItem('viewOnlyMode') === null && typeof settings.viewOnlyMode === 'boolean') appState.setViewOnlyMode(settings.viewOnlyMode as boolean);
+		if (layoutFromLS.sidebarWidth === undefined && typeof settings.sidebarWidth === 'number') sidebarWidth = clamp(settings.sidebarWidth as number, 150, 500, DEFAULT_SIDEBAR_WIDTH);
+		if (layoutFromLS.editorWidthPercent === undefined && typeof settings.editorWidthPercent === 'number') editorWidthPercent = clamp(settings.editorWidthPercent as number, 20, 80, DEFAULT_EDITOR_PERCENT);
+		if (layoutFromLS.tocWidth === undefined && typeof settings.tocWidth === 'number') tocWidth = clamp(settings.tocWidth as number, 150, 400, DEFAULT_TOC_WIDTH);
 		await loadRecentList();
 		const session = (settings.session as any) || (await platform.getSession());
 		if (session && Array.isArray(session.tabs) && session.tabs.length) {
@@ -926,6 +963,7 @@
 			document.body.style.cursor = '';
 			document.body.style.userSelect = '';
 			saveLayoutState();
+			void persistUiSettings();
 
 			// Re-measure sections after resize (affects wrapped text width)
 			if (needsRemeasure) {
@@ -976,6 +1014,7 @@
 	onkeydown={handleKeydown}
 	onmousemove={(e) => { handleMouseMove(e); handleResizeMove(e); }}
 	onmouseup={handleResizeEnd}
+	onbeforeunload={() => { void persistUiSettings(); }}
 />
 
 <div class="app" data-theme={appState.resolvedAppTheme} class:theme-light={appState.resolvedAppTheme === "light"} class:auto-hide={appState.autoHideUI} class:resizing={isResizingSidebar || isResizingEditor} class:mobile={isMobile} class:sidebar-collapsed={!showDesktopSidebar && !isMobile}>
@@ -1029,6 +1068,7 @@
 						} else {
 							showDesktopSidebar = !showDesktopSidebar;
 							saveLayoutState();
+							void persistUiSettings();
 						}
 					}}
 				>
@@ -1036,13 +1076,13 @@
 						<path d="M1 2.75A.75.75 0 011.75 2h12.5a.75.75 0 010 1.5H1.75A.75.75 0 011 2.75zm0 5A.75.75 0 011.75 7h12.5a.75.75 0 010 1.5H1.75A.75.75 0 011 7.75zM1.75 12a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H1.75z"/>
 					</svg>
 				</button>
-				<Toolbar editor={editorRef} onPrint={handlePrint} onResetLayout={resetLayout} />
+				<Toolbar editor={editorRef} onPrint={handlePrint} onResetLayout={resetLayout} onviewtoggle={() => { void persistUiSettings(); }} />
 				<div class="status-area">
 					<button
 						class="toc-btn"
 						class:active={showTOC}
 						title={t('tableOfContents')}
-						onclick={() => { showTOC = !showTOC; saveTOCState(); }}
+						onclick={() => { showTOC = !showTOC; saveTOCState(); void persistUiSettings(); }}
 						disabled={tocItems.length === 0}
 					>
 						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
@@ -1065,16 +1105,16 @@
 						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
 					</button>
 					<button class="toc-btn" title={t('save')} onclick={() => saveCurrent()}>
-						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073ZM4.5 12.25a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Z"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" width="14" height="14"><path d="M64 80c-8.8 0-16 7.2-16 16l0 320c0 8.8 7.2 16 16 16l320 0c8.8 0 16-7.2 16-16l0-242.7c0-4.2-1.7-8.3-4.7-11.3L320 86.6 320 176c0 17.7-14.3 32-32 32l-160 0c-17.7 0-32-14.3-32-32l0-96-32 0zm80 0l0 80 128 0 0-80-128 0zM0 96C0 60.7 28.7 32 64 32l242.7 0c17 0 33.3 6.7 45.3 18.7L429.3 128c12 12 18.7 28.3 18.7 45.3L448 416c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 96zM160 320a64 64 0 1 1 128 0 64 64 0 1 1 -128 0z"/></svg>
 					</button>
 					<button class="toc-btn" title={t('saveAs')} onclick={() => saveCurrentAs()}>
-						<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25ZM3.75 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073Z"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="14" height="14"><path d="M64 48l224 0c8.8 0 16 7.2 16 16l0 48 48 0 0-48c0-35.3-28.7-64-64-64L64 0C28.7 0 0 28.7 0 64L0 384c0 35.3 28.7 64 64 64l112 0 0-48-112 0c-8.8 0-16-7.2-16-16L48 64c0-8.8 7.2-16 16-16zm176 72c0-13.3-10.7-24-24-24L104 96c-13.3 0-24 10.7-24 24s10.7 24 24 24l105.6 0c8.8-8.6 19-15.8 30.2-21.1 .1-.9 .2-1.9 .2-2.9zM448 464l-160 0c-8.8 0-16-7.2-16-16l0-224c0-8.8 7.2-16 16-16l101.5 0c4.2 0 8.3 1.7 11.3 4.7l58.5 58.5c3 3 4.7 7.1 4.7 11.3L464 448c0 8.8-7.2 16-16 16zM224 224l0 224c0 35.3 28.7 64 64 64l160 0c35.3 0 64-28.7 64-64l0-165.5c0-17-6.7-33.3-18.7-45.3l-58.5-58.5c-12-12-28.3-18.7-45.3-18.7L288 160c-35.3 0-64 28.7-64 64z"/></svg>
 					</button>
 					<button
 						class="view-toggle-btn"
 						class:active={appState.viewOnlyMode}
 						title={appState.viewOnlyMode ? t('editMode') : t('viewOnly')}
-						onclick={() => appState.toggleViewOnlyMode()}
+						onclick={() => { appState.toggleViewOnlyMode(); void persistUiSettings(); }}
 					>
 						{#if appState.viewOnlyMode}
 							<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
@@ -1244,7 +1284,11 @@
 						></div>
 						<div class="toc-header">
 							<span>{t('tableOfContents')}</span>
-							<button class="toc-close" onclick={() => { showTOC = false; saveTOCState(); }} aria-label={t('closeTableOfContents')}>
+							<button
+								class="toc-close"
+								onclick={() => { showTOC = false; saveTOCState(); void persistUiSettings(); }}
+								aria-label={t('closeTableOfContents')}
+							>
 								<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
 									<path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
 								</svg>

@@ -14,11 +14,22 @@
     { name: 'CodeMirror', version: '6.x', description: 'Extensible code editor for the browser', license: 'MIT', url: 'https://github.com/codemirror/dev' },
     { name: 'Mermaid', version: '11.x', description: 'Diagramming and charting tool', license: 'MIT', url: 'https://github.com/mermaid-js/mermaid' },
     { name: 'KaTeX', version: '0.16.x', description: 'Fast math typesetting for the web', license: 'MIT', url: 'https://github.com/KaTeX/KaTeX' },
-    { name: 'Wails', version: '2.x', description: 'Desktop apps with Go and web technologies', license: 'MIT', url: 'https://github.com/wailsapp/wails' },
-    { name: 'Dexie.js', version: '4.x', description: 'Minimalistic IndexedDB wrapper', license: 'Apache-2.0', url: 'https://github.com/dexie/Dexie.js' },
-    { name: 'github-markdown-css', version: '5.x', description: 'GitHub Markdown CSS styles', license: 'MIT', url: 'https://github.com/sindresorhus/github-markdown-css' },
     { name: 'highlight.js', version: '11.x', description: 'Syntax highlighting for code blocks', license: 'BSD-3-Clause', url: 'https://github.com/highlightjs/highlight.js' },
+    { name: 'Font Awesome Free', version: '7.x', description: 'Icon set used across the UI', license: 'CC BY 4.0 / OFL / MIT', url: 'https://github.com/fortawesome/font-awesome' },
+    { name: 'github-markdown-css', version: '5.x', description: 'GitHub Markdown CSS styles', license: 'MIT', url: 'https://github.com/sindresorhus/github-markdown-css' },
+    { name: 'Dexie.js', version: '4.x', description: 'Minimalistic IndexedDB wrapper', license: 'Apache-2.0', url: 'https://github.com/dexie/Dexie.js' },
+    { name: 'JSZip', version: '3.x', description: 'Create and read ZIP archives', license: 'MIT / GPL-3.0', url: 'https://github.com/Stuk/jszip' },
+    { name: 'lucide-svelte', version: '0.5x', description: 'Lucide icons for Svelte', license: 'ISC', url: 'https://github.com/lucide-icons/lucide' },
+    { name: 'github-slugger', version: '2.x', description: 'Slug generation for headings', license: 'ISC', url: 'https://github.com/Flet/github-slugger' },
+    { name: 'unified', version: '11.x', description: 'Content transformation platform (Markdown pipeline)', license: 'MIT', url: 'https://github.com/unifiedjs/unified' },
+    { name: 'remark-gfm', version: '4.x', description: 'GitHub Flavored Markdown support', license: 'MIT', url: 'https://github.com/remarkjs/remark-gfm' },
+    { name: 'remark-math', version: '6.x', description: 'Math blocks support', license: 'MIT', url: 'https://github.com/remarkjs/remark-math' },
+    { name: 'rehype-highlight', version: '7.x', description: 'Syntax highlighting in HAST', license: 'MIT', url: 'https://github.com/rehypejs/rehype-highlight' },
+    { name: 'rehype-katex', version: '7.x', description: 'Render math via KaTeX', license: 'MIT', url: 'https://github.com/remarkjs/remark-math' },
+    { name: 'rehype-slug', version: '6.x', description: 'Add ids to headings', license: 'MIT', url: 'https://github.com/rehypejs/rehype-slug' },
+    { name: 'Wails', version: '2.x', description: 'Desktop apps with Go and web technologies', license: 'MIT', url: 'https://github.com/wailsapp/wails' },
     { name: 'Vite', version: '6.x', description: 'Frontend build tool', license: 'MIT', url: 'https://github.com/vitejs/vite' },
+    { name: 'TypeScript', version: '5.x', description: 'Typed JavaScript', license: 'Apache-2.0', url: 'https://github.com/microsoft/TypeScript' },
   ];
 
   const sections: { id: Section; labelKey: string }[] = [
@@ -71,7 +82,7 @@
             <div class="about-row">
               <div class="about-icon" aria-hidden="true">M</div>
               <div>
-                <div class="about-title">mdmark</div>
+                <div class="about-title">mdman</div>
                 <div class="about-meta">MIT · desktop SvelteMark</div>
               </div>
             </div>

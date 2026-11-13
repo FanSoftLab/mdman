@@ -1,4 +1,4 @@
-module github.com/localtools/mdmark
+module github.com/localtools/mdman
 
 go 1.27
 

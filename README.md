@@ -1,4 +1,4 @@
-# mdmark
+# mdman
 
 **Desktop port of [SvelteMark](https://github.com/MasFana/sveltemark).**
 

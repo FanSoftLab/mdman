@@ -141,8 +141,8 @@ export function onOpenFiles(handler: (paths: string[]) => void): () => void {
   }
   // Fallback: custom event
   const fn = (e: Event) => handler(((e as CustomEvent).detail as string[]) || []);
-  window.addEventListener('mdmark-open-files', fn);
-  return () => window.removeEventListener('mdmark-open-files', fn);
+  window.addEventListener('mdman-open-files', fn);
+  return () => window.removeEventListener('mdman-open-files', fn);
 }
 
 export async function snapshotWindow(): Promise<void> {

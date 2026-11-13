@@ -7,9 +7,10 @@
 		editor?: Editor;
 		onPrint?: () => void;
 		onResetLayout?: () => void;
+		onviewtoggle?: () => void;
 	}
 
-	let { editor, onPrint, onResetLayout }: Props = $props();
+	let { editor, onPrint, onResetLayout, onviewtoggle }: Props = $props();
 	let showInsertMenu = $state(false);
 	let showMoreMenu = $state(false);
 	let fileInput: HTMLInputElement;
@@ -124,6 +125,7 @@
 
 	function toggleViewOnly() {
 		appState.toggleViewOnlyMode();
+		onviewtoggle?.();
 	}
 
 	function toggleAutoHide() {

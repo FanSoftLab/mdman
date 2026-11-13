@@ -19,7 +19,7 @@ export function setLocale(code: Locale) {
   current = code;
   listeners.forEach((fn) => fn());
   try {
-    localStorage.setItem('mdmark.locale', code);
+    localStorage.setItem('mdman.locale', code);
   } catch { /* ignore */ }
 }
 

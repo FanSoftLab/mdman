@@ -538,7 +538,7 @@ export const appState = {
     },
     set resolvedAppTheme(v: 'dark' | 'light') {
         resolvedAppTheme = v;
-        if (browser) localStorage.setItem('mdmark.themeResolved', v);
+        if (browser) localStorage.setItem('mdman.themeResolved', v);
     },
     get resolvedPreviewTheme() {
         return resolvedPreviewTheme;

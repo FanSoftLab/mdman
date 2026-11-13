@@ -18,4 +18,4 @@ for lib in "$HERE/usr/lib" "$HERE"/usr/lib/*-linux-gnu; do
   fi
 done
 
-exec "$HERE/usr/bin/mdmark" "$@"
+exec "$HERE/usr/bin/mdman" "$@"

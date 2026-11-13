@@ -63,7 +63,7 @@ func NewApp() *App {
 	if err != nil {
 		configDir = "."
 	}
-	configDir = filepath.Join(configDir, "mdmark")
+	configDir = filepath.Join(configDir, "mdman")
 	_ = os.MkdirAll(configDir, 0755)
 
 	a := &App{
@@ -82,6 +82,20 @@ func NewApp() *App {
 		a.recentFileMax = int(v)
 	}
 	return a
+}
+
+// GetStartupTheme reports the theme the window background should use before
+// the frontend loads, to avoid a colour flash on startup.
+func (a *App) GetStartupTheme() string {
+	pref, _ := a.settings["themeApp"].(string)
+	switch pref {
+	case "dark":
+		return "dark"
+	case "light":
+		return "light"
+	default:
+		return ""
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -294,7 +308,6 @@ func (a *App) persistWindowState() {
 	_ = os.WriteFile(a.windowPath(), data, 0644)
 }
 
-
 func (a *App) restoreWindowState() {
 	if a.ctx == nil {
 		return
@@ -319,7 +332,6 @@ func (a *App) restoreWindowState() {
 	// Skip 0,0 only when it likely means "unset"; still apply multi-monitor negatives.
 	runtime.WindowSetPosition(a.ctx, st.X, st.Y)
 }
-
 
 func (a *App) GetWorkspace() string {
 	a.settingsMu.RLock()
@@ -591,7 +603,6 @@ func (a *App) SaveSession(session map[string]interface{}) {
 	a.saveSettings()
 }
 
-
 func (a *App) GetContext() context.Context {
 	return a.ctx
 }
@@ -617,7 +628,6 @@ func (a *App) SnapshotWindow() {
 	defer func() { recover() }()
 	a.persistWindowState()
 }
-
 
 // ResolveMediaURL resolves a relative media path against the markdown file directory
 // and returns a data URL so the webview can display local images.

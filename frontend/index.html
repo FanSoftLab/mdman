@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>mdmark</title>
+    <title>mdman</title>
     <meta name="theme-color" content="#0d1117" />
     <style>
       *, *::before, *::after { box-sizing: border-box; }
@@ -20,14 +20,25 @@
       #app { height: 100%; width: 100%; }
     </style>
     <script>
-      try {
-        if (localStorage.getItem('mdmark.themeResolved') === 'light') {
-          document.documentElement.dataset.theme = 'light';
-          document.documentElement.classList.add('theme-light');
-          document.documentElement.style.colorScheme = 'light';
-          document.documentElement.style.backgroundColor = '#ffffff';
+      (function () {
+        function readLS(key) {
+          try {
+            return window.localStorage.getItem('mdman.' + key);
+          } catch (e) { return null; }
         }
-      } catch (e) {}
+        var resolved = readLS('themeResolved');
+        if (resolved !== 'light' && resolved !== 'dark') {
+          try {
+            resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          } catch (e) { resolved = 'dark'; }
+        }
+        var isLight = resolved === 'light';
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.classList.toggle('theme-light', isLight);
+        document.documentElement.classList.toggle('theme-dark', !isLight);
+        document.documentElement.style.colorScheme = resolved;
+        document.documentElement.style.backgroundColor = isLight ? '#ffffff' : '#0d1117';
+      })();
     </script>
   </head>
   <body>
