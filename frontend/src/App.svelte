@@ -34,6 +34,7 @@
 		id: string;
 	}
 	let tocItems = $state<TOCItem[]>([]);
+	let tocTimeout: ReturnType<typeof setTimeout> | null = null;
 	let themeApp = $state<'dark' | 'light' | 'system'>('system');
 	let themePreview = $state<'dark' | 'light' | 'system'>('system');
 	let settingsOpen = $state(false);
@@ -65,7 +66,18 @@
 		}
 	}
 
-	// Track active heading on scroll
+	// Track active heading on scroll.
+	// rAF-throttled: this was previously called on EVERY preview scroll event and
+	// performed getElementById + getBoundingClientRect per heading (layout thrash).
+	let headingRAF: number | null = null;
+	function scheduleActiveHeading() {
+		if (headingRAF !== null) return;
+		headingRAF = requestAnimationFrame(() => {
+			headingRAF = null;
+			updateActiveHeading();
+		});
+	}
+
 	function updateActiveHeading() {
 		if (tocItems.length === 0) return;
 
@@ -96,20 +108,27 @@
 		activeHeadingId = currentActive;
 	}
 
-	// Extract TOC from markdown content using AST-based extraction
-	// This properly handles duplicates and ignores # symbols in code blocks
-	// Uses the same slug generation as the HTML renderer (github-slugger)
+	// Extract TOC from markdown content using AST-based extraction.
+	// Debounced: previously this parsed the FULL document synchronously on every
+	// buffer change (every keystroke) — now it runs once per editing pause.
 	$effect(() => {
-		if (appState.buffer) {
-			const tocFromAST = extractTableOfContents(appState.buffer);
-			tocItems = tocFromAST.map(item => ({
-				level: item.level,
-				text: item.text,
-				id: item.id
-			}));
-		} else {
-			tocItems = [];
-		}
+		const buf = appState.buffer;
+		if (tocTimeout) clearTimeout(tocTimeout);
+		tocTimeout = setTimeout(() => {
+			tocItems = buf
+				? extractTableOfContents(buf).map((item) => ({
+						level: item.level,
+						text: item.text,
+						id: item.id
+					}))
+				: [];
+		}, 250);
+		return () => {
+			if (tocTimeout) {
+				clearTimeout(tocTimeout);
+				tocTimeout = null;
+			}
+		};
 	});
 
 	// Auto-hide UI effect: hide sidebar/toolbar when enabled, show when disabled.
@@ -495,7 +514,11 @@
 	}
 
 	function handleEditorChange(content: string) {
-		tabs = tabs.map((tab) => (tab.id === activeTabId ? { ...tab, dirty: true } : tab));
+		// set dirty once (was: new tabs array on every keystroke)
+		const tab = tabs.find((t) => t.id === activeTabId);
+		if (tab && !tab.dirty) {
+			tabs = tabs.map((t) => (t.id === activeTabId ? { ...t, dirty: true } : t));
+		}
 
 		appState.updateBuffer(content);
 
@@ -1231,7 +1254,7 @@
 									baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
 									bind:this={previewRef}
 									content={appState.buffer}
-									onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
+									onscroll={(e) => { handlePreviewScroll(e); scheduleActiveHeading(); }}
 									ondimensionschange={syncSectionDimensions}
 								/>
 							</div>
@@ -1243,7 +1266,7 @@
 										baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
 										bind:this={previewRef}
 										content={appState.buffer}
-										onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
+										onscroll={(e) => { handlePreviewScroll(e); scheduleActiveHeading(); }}
 										ondimensionschange={syncSectionDimensions}
 									/>
 								</div>
@@ -1265,7 +1288,7 @@
 									baseFilePath={tabs.find((t) => t.id === activeTabId)?.path || ''}
 									bind:this={previewRef}
 									content={appState.buffer}
-									onscroll={(e) => { handlePreviewScroll(e); updateActiveHeading(); }}
+									onscroll={(e) => { handlePreviewScroll(e); scheduleActiveHeading(); }}
 									ondimensionschange={syncSectionDimensions}
 								/>
 							</div>

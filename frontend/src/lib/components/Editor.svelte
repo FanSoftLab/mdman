@@ -1704,18 +1704,37 @@
 		view?.destroy();
 	});
 
-	// Update editor content when value prop changes
+	// Update editor content when value prop changes.
+	// Tracks the last externally-set value instead of comparing with
+	// doc.toString() — that stringified the ENTIRE document on every
+	// keystroke (O(doc) allocation per key press).
+	let lastExternalValue: string | null = null;
 	$effect(() => {
-		if (view && value !== view.state.doc.toString()) {
-			isUpdating = true;
-			view.dispatch({
-				changes: {
-					from: 0,
-					to: view.state.doc.length,
-					insert: value
-				}
-			});
-			isUpdating = false;
+		const v = value;
+		if (!view) return;
+		if (lastExternalValue === null) {
+			// first run: one-time sync with the doc created in onMount
+			if (v !== view.state.doc.toString()) {
+				view.dispatch({
+					changes: { from: 0, to: view.state.doc.length, insert: v }
+				});
+			}
+			lastExternalValue = v;
+			return;
+		}
+		if (v !== lastExternalValue) {
+			lastExternalValue = v;
+			if (v !== view.state.doc.toString()) {
+				isUpdating = true;
+				view.dispatch({
+					changes: {
+						from: 0,
+						to: view.state.doc.length,
+						insert: v
+					}
+				});
+				isUpdating = false;
+			}
 		}
 	});
 

@@ -243,17 +243,13 @@ function generateBlockId(source: string, startLine: number, index: number): stri
 }
 
 /**
- * Split markdown into top-level blocks
+ * Split a parsed AST into top-level blocks (source slices + line ranges).
+ * Reuses a single parse — callers that need both blocks and headings must
+ * pass the same tree here instead of re-parsing the document.
  */
-export function splitIntoBlocks(markdown: string): { source: string; startLine: number; endLine: number }[] {
-    if (!markdown.trim()) {
-        return [];
-    }
-
-    const tree = parser.parse(markdown) as MdastRoot;
-    const blocks: { source: string; startLine: number; endLine: number }[] = [];
+function blocksFromTree(tree: MdastRoot, markdown: string): { source: string; startLine: number; endLine: number }[] {
     const lines = markdown.split('\n');
-
+    const blocks: { source: string; startLine: number; endLine: number }[] = [];
     for (const node of tree.children as RootContent[]) {
         if (node.position) {
             const startLine = node.position.start.line;
@@ -263,8 +259,17 @@ export function splitIntoBlocks(markdown: string): { source: string; startLine: 
             blocks.push({ source, startLine, endLine });
         }
     }
-
     return blocks;
+}
+
+/**
+ * Split markdown into top-level blocks (one full parse per call).
+ */
+export function splitIntoBlocks(markdown: string): { source: string; startLine: number; endLine: number }[] {
+    if (!markdown.trim()) {
+        return [];
+    }
+    return blocksFromTree(parser.parse(markdown) as MdastRoot, markdown);
 }
 
 /**
@@ -290,73 +295,77 @@ export interface HeadingInfo {
     globalOccurrence: number; // Global occurrence number in the entire document
 }
 
+export interface TocEntry {
+    level: number;
+    text: string;
+    id: string;
+}
+
 /**
- * Extract heading slugs from markdown AST with proper duplicate handling
- * This is MUCH faster than rendering full HTML and parsing it back
- * Uses GithubSlugger to handle duplicates correctly (same algorithm as rehype-slug)
- * 
- * Returns a map keyed by "h{level}-{blockId}-{text}" to track headings per block
+ * Build heading slugs (block-context aware) and table of contents from an
+ * already-parsed AST in a single pass. Operating on the shared tree instead
+ * of re-parsing the document is the main rendering-pipeline optimization:
+ * the previous implementation parsed the full document 2 extra times per render.
+ * Uses GithubSlugger to handle duplicates correctly (same algorithm as rehype-slug).
  */
-function extractHeadingSlugsFromAST(markdown: string): Map<string, HeadingInfo> {
+function buildSlugMapAndToc(tree: MdastRoot, blocks: { source: string; startLine: number; endLine: number }[]): {
+    slugMap: Map<string, HeadingInfo>;
+    toc: TocEntry[];
+} {
     const headingInfoMap = new Map<string, HeadingInfo>();
+    const toc: TocEntry[] = [];
     const slugger = new GithubSlugger();
     const headingOccurrences = new Map<string, number>(); // Track global occurrences
 
-    try {
-        const tree = parser.parse(markdown) as MdastRoot;
-        const blocks = splitIntoBlocks(markdown);
-
-        // Visit all heading nodes
-        visit(tree, 'heading', (node: Heading) => {
-            // Extract text content from heading ONLY (not from nested code blocks, etc)
-            let text = '';
-            visit(node, 'text', (textNode: { value: string }) => {
-                text += textNode.value;
-            });
-
-            if (text.trim()) {
-                // Generate slug using GithubSlugger (same as rehype-slug)
-                const slug = slugger.slug(text);
-
-                // Track global occurrence count
-                const occurrenceKey = `h${node.depth}-${text}`;
-                const globalOccurrence = (headingOccurrences.get(occurrenceKey) || 0) + 1;
-                headingOccurrences.set(occurrenceKey, globalOccurrence);
-
-                // Find which block this heading belongs to
-                const nodeStart = node.position?.start.line || 0;
-                let blockId = 'unknown';
-                for (let i = 0; i < blocks.length; i++) {
-                    if (nodeStart >= blocks[i].startLine && nodeStart <= blocks[i].endLine) {
-                        blockId = `block-${i}`;
-                        break;
-                    }
-                }
-
-                const headingInfo: HeadingInfo = {
-                    level: node.depth,
-                    text,
-                    slug,
-                    blockId,
-                    occurrenceInBlock: 1, // Will be updated if needed
-                    globalOccurrence
-                };
-
-                // Store with composite key for lookup
-                const key = `h${node.depth}-${blockId}-${text}`;
-                headingInfoMap.set(key, headingInfo);
-
-                // Also store by slug for reverse lookup
-                const slugKey = `slug-${slug}`;
-                headingInfoMap.set(slugKey, headingInfo);
-            }
+    // Visit all heading nodes
+    visit(tree, 'heading', (node: Heading) => {
+        // Extract text content from heading ONLY (not from nested code blocks, etc)
+        let text = '';
+        visit(node, 'text', (textNode: { value: string }) => {
+            text += textNode.value;
         });
-    } catch (e) {
-        // Fallback to empty map if parsing fails
-        console.error('Error parsing markdown AST:', e);
-    }
 
-    return headingInfoMap;
+        if (text.trim()) {
+            // Generate slug using GithubSlugger (same as rehype-slug)
+            const slug = slugger.slug(text);
+
+            // Track global occurrence count
+            const occurrenceKey = `h${node.depth}-${text}`;
+            const globalOccurrence = (headingOccurrences.get(occurrenceKey) || 0) + 1;
+            headingOccurrences.set(occurrenceKey, globalOccurrence);
+
+            // Find which block this heading belongs to
+            const nodeStart = node.position?.start.line || 0;
+            let blockId = 'unknown';
+            for (let i = 0; i < blocks.length; i++) {
+                if (nodeStart >= blocks[i].startLine && nodeStart <= blocks[i].endLine) {
+                    blockId = `block-${i}`;
+                    break;
+                }
+            }
+
+            const headingInfo: HeadingInfo = {
+                level: node.depth,
+                text,
+                slug,
+                blockId,
+                occurrenceInBlock: 1, // Will be updated if needed
+                globalOccurrence
+            };
+
+            // Store with composite key for lookup
+            const key = `h${node.depth}-${blockId}-${text}`;
+            headingInfoMap.set(key, headingInfo);
+
+            // Also store by slug for reverse lookup
+            const slugKey = `slug-${slug}`;
+            headingInfoMap.set(slugKey, headingInfo);
+
+            toc.push({ level: node.depth, text: text.trim(), id: slug });
+        }
+    });
+
+    return { slugMap: headingInfoMap, toc };
 }
 
 /**
@@ -417,38 +426,116 @@ function applySlugsToBlockHTML(blockHTML: string, slugMap: Map<string, HeadingIn
 }
 
 /**
- * Process markdown into blocks with rendered HTML
- * OPTIMIZED: Uses AST-based slug extraction instead of full HTML rendering
- * This provides 30-40% performance improvement while maintaining correct duplicate handling
- * 
- * The block-aware slug mapping prevents race conditions where identical headings
- * in different blocks would collide during concurrent rendering
+ * LRU-ish cache of pre-slug block HTML keyed by block source.
+ * Unchanged blocks skip the (expensive) parse/render entirely on re-renders.
+ * Slugs are applied on top of the cached HTML every render, so heading
+ * edits above a block still shift its ids correctly.
  */
-export async function processMarkdownBlocks(markdown: string): Promise<MarkdownBlock[]> {
-    const rawBlocks = splitIntoBlocks(markdown);
+const blockHtmlCache = new Map<string, { html: string; size: number }>();
+const BLOCK_CACHE_MAX_ENTRIES = 1000;
+const BLOCK_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+let blockCacheBytes = 0;
 
-    // Extract slug mappings from AST with block context (much faster than full HTML render)
-    const slugMap = extractHeadingSlugsFromAST(markdown);
+function getCachedBlockHtml(source: string): string | null {
+    const entry = blockHtmlCache.get(source);
+    if (entry === undefined) return null;
+    // re-insert to mark as most recently used
+    blockHtmlCache.delete(source);
+    blockHtmlCache.set(source, entry);
+    return entry.html;
+}
 
-    // Process individual blocks and apply the correct slugs with block context
-    const processedBlocks: MarkdownBlock[] = [];
+function putCachedBlockHtml(source: string, html: string): void {
+    const prev = blockHtmlCache.get(source);
+    if (prev !== undefined) {
+        blockCacheBytes -= prev.size;
+        blockHtmlCache.delete(source);
+    }
+    const size = source.length + html.length;
+    blockHtmlCache.set(source, { html, size });
+    blockCacheBytes += size;
+    while (
+        blockHtmlCache.size > 1 &&
+        (blockHtmlCache.size > BLOCK_CACHE_MAX_ENTRIES || blockCacheBytes > BLOCK_CACHE_MAX_BYTES)
+    ) {
+        const oldest = blockHtmlCache.keys().next().value;
+        if (oldest === undefined) break;
+        const evicted = blockHtmlCache.get(oldest);
+        blockCacheBytes -= evicted?.size ?? 0;
+        blockHtmlCache.delete(oldest);
+    }
+}
+
+/**
+ * Result of an incremental document render.
+ */
+export interface RenderResult {
+    blocks: MarkdownBlock[];
+    /** Indexes of blocks whose source changed since prevBlocks (i.e. were re-rendered). */
+    changedIndexes: number[];
+    /** Table of contents extracted from the same AST pass (no extra parse). */
+    toc: TocEntry[];
+}
+
+/**
+ * Render markdown into blocks incrementally.
+ *
+ * OPTIMIZED pipeline: exactly ONE full-document parse per call (the previous
+ * implementation performed ~N+3 parses: splitIntoBlocks, heading-slugs pass
+ * plus a second splitIntoBlocks inside it, and one parse per block).
+ * Unchanged blocks are served from the pre-slug HTML cache, so editing one
+ * block of a large document costs O(changed block) instead of O(document).
+ * Output is identical to a full render (slug handling included).
+ */
+export async function renderDocument(
+    prevBlocks: MarkdownBlock[] | null,
+    markdown: string
+): Promise<RenderResult> {
+    if (!markdown.trim()) {
+        return { blocks: [], changedIndexes: [], toc: [] };
+    }
+
+    const tree = parser.parse(markdown) as MdastRoot;
+    const rawBlocks = blocksFromTree(tree, markdown);
+    const { slugMap, toc } = buildSlugMapAndToc(tree, rawBlocks);
+
+    const blocks: MarkdownBlock[] = [];
+    const changed = new Set<number>();
 
     for (let i = 0; i < rawBlocks.length; i++) {
-        const block = rawBlocks[i];
-        const blockId = `block-${i}`;
-        const blockHTML = await processBlock(block.source);
-        const htmlWithSlugs = applySlugsToBlockHTML(blockHTML, slugMap, blockId);
+        const raw = rawBlocks[i];
+        const id = generateBlockId(raw.source, raw.startLine, i);
+        const prev = prevBlocks && prevBlocks[i] && prevBlocks[i].id === id ? prevBlocks[i] : null;
+        if (!prev) changed.add(i);
 
-        processedBlocks.push({
-            id: generateBlockId(block.source, block.startLine, i),
-            source: block.source,
-            html: htmlWithSlugs,
-            startLine: block.startLine,
-            endLine: block.endLine
+        let preSlugHtml = getCachedBlockHtml(raw.source);
+        if (preSlugHtml === null) {
+            preSlugHtml = await processBlock(raw.source);
+            putCachedBlockHtml(raw.source, preSlugHtml);
+            changed.add(i);
+        }
+
+        const html = applySlugsToBlockHTML(preSlugHtml, slugMap, `block-${i}`);
+
+        blocks.push({
+            id,
+            source: raw.source,
+            html,
+            startLine: raw.startLine,
+            endLine: raw.endLine
         });
     }
 
-    return processedBlocks;
+    return { blocks, changedIndexes: [...changed], toc };
+}
+
+/**
+ * Process markdown into blocks with rendered HTML (full render, cold start).
+ * Kept as the public full-render API; incremental updates should use
+ * renderDocument(prevBlocks, markdown).
+ */
+export async function processMarkdownBlocks(markdown: string): Promise<MarkdownBlock[]> {
+    return (await renderDocument(null, markdown)).blocks;
 }
 
 /**
@@ -456,80 +543,24 @@ export async function processMarkdownBlocks(markdown: string): Promise<MarkdownB
  * This properly distinguishes between:
  * - Actual headings (# Comment)
  * - # symbols in code blocks (```bash # comment\n```)
- * 
- * Uses GithubSlugger to generate consistent IDs, properly handling duplicates
+ *
+ * Uses GithubSlugger to generate consistent IDs, properly handling duplicates.
+ * NOTE: callers that already render blocks should use renderDocument's toc
+ * instead — it reuses the same AST pass (no extra parse).
  */
-export function extractTableOfContents(markdown: string): { level: number; text: string; id: string }[] {
-    const toc: { level: number; text: string; id: string }[] = [];
-    const slugger = new GithubSlugger();
+export function extractTableOfContents(markdown: string): TocEntry[] {
+    if (!markdown.trim()) {
+        return [];
+    }
 
     try {
         const tree = parser.parse(markdown) as MdastRoot;
-
-        // Visit all heading nodes from the AST
-        // This automatically excludes code blocks, which are separate node types
-        visit(tree, 'heading', (node: Heading) => {
-            // Extract text content from heading
-            let text = '';
-            visit(node, 'text', (textNode: { value: string }) => {
-                text += textNode.value;
-            });
-
-            if (text.trim()) {
-                // Generate slug using GithubSlugger (same as rehype-slug)
-                const id = slugger.slug(text);
-                toc.push({
-                    level: node.depth,
-                    text: text.trim(),
-                    id
-                });
-            }
-        });
+        const blocks = blocksFromTree(tree, markdown);
+        return buildSlugMapAndToc(tree, blocks).toc;
     } catch (e) {
         console.error('Error extracting table of contents:', e);
+        return [];
     }
-
-    return toc;
-}
-
-/**
- * Diff old blocks vs new blocks and return update instructions
- * Compares by source content to detect actual changes
- */
-export interface BlockDiff {
-    type: 'add' | 'remove' | 'update' | 'keep';
-    index: number;
-    block?: MarkdownBlock;
-    oldIndex?: number;
-}
-
-export function diffBlocks(oldBlocks: MarkdownBlock[], newBlocks: MarkdownBlock[]): BlockDiff[] {
-    const diffs: BlockDiff[] = [];
-
-    // Compare blocks by position and content
-    const maxLen = Math.max(oldBlocks.length, newBlocks.length);
-
-    for (let i = 0; i < maxLen; i++) {
-        const oldBlock = oldBlocks[i];
-        const newBlock = newBlocks[i];
-
-        if (!oldBlock && newBlock) {
-            // New block added at the end
-            diffs.push({ type: 'add', index: i, block: newBlock });
-        } else if (oldBlock && !newBlock) {
-            // Block removed from the end
-            diffs.push({ type: 'remove', index: i, oldIndex: i });
-        } else if (oldBlock && newBlock) {
-            // Both exist - compare content
-            if (oldBlock.source === newBlock.source) {
-                diffs.push({ type: 'keep', index: i, block: newBlock });
-            } else {
-                diffs.push({ type: 'update', index: i, block: newBlock, oldIndex: i });
-            }
-        }
-    }
-
-    return diffs;
 }
 
 /**

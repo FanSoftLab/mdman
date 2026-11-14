@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { processMarkdownBlocks, diffBlocks, type MarkdownBlock } from '../markdown';
+	import { renderDocument, type MarkdownBlock } from '../markdown';
+	import { resolveMediaCached } from '../mediaCache';
 	import mermaid from 'mermaid';
-	import * as platform from '../platform';
 	import { appState } from '../appState.svelte';
 	import { t } from '../i18n/index.svelte';
 	import markdownLightCss from 'github-markdown-css/github-markdown-light.css?inline';
@@ -46,30 +46,27 @@
 		const matches = [...html.matchAll(re)];
 		if (!matches.length) return html;
 		let out = html;
-		// resolve unique srcs
-		const cache = new Map<string, string>();
+		// resolve unique srcs through the cross-render cache (no repeated Go IPC)
 		for (const m of matches) {
 			const src = m[3];
-			if (cache.has(src)) continue;
 			const lower = src.toLowerCase();
 			if (lower.startsWith('http://') || lower.startsWith('https://') ||
 				lower.startsWith('data:') || lower.startsWith('blob:') || lower.startsWith('wails://')) {
-				cache.set(src, src);
 				continue;
 			}
-			try {
-				const url = await platform.resolveMediaURL(base, src);
-				cache.set(src, url || src);
-			} catch {
-				cache.set(src, src);
+			if (!resolvedSrcCache.has(src)) {
+				resolvedSrcCache.set(src, await resolveMediaCached(base, src));
 			}
 		}
 		out = out.replace(re, (_full, pre, quote, src, q2) => {
-			return pre + quote + (cache.get(src) || src) + q2;
+			return pre + quote + (resolvedSrcCache.get(src) || src) + q2;
 		});
 		// also markdown-style already converted; handle src='...'
 		return out;
 	}
+
+	// Per-render-cycle resolution map: unique src -> data URL, reused across blocks
+	let resolvedSrcCache = new Map<string, string>();
 
 	// Light stylesheets for the preview (github-markdown + highlight.js), toggled by preview theme
 	let markdownLightStyle: HTMLStyleElement | null = null;
@@ -152,7 +149,7 @@
 	$effect(() => {
 		const currentContent = content;
 		const _baseTrack = baseFilePath; // re-resolve images when file path changes
-		
+
 		// Clear any pending processing
 		if (processingTimeout) {
 			clearTimeout(processingTimeout);
@@ -161,17 +158,20 @@
 		// Debounce processing to avoid excessive updates
 		processingTimeout = setTimeout(async () => {
 			try {
-				const newBlocks = await processMarkdownBlocks(currentContent || '');
+				// Incremental render: only blocks whose source changed are re-rendered;
+				// TOC comes from the same AST pass (no extra parse).
+				const result = await renderDocument(blocks, currentContent || '');
 				const base = baseFilePath;
-				let resolvedBlocks = newBlocks;
+				let resolvedBlocks = result.blocks;
 				if (base) {
-					// Resolve images sequentially with a shared cache (faster than N parallel Go calls)
-					const cache = new Map<string, string>();
+					// dedupe resolutions within this render cycle; cross-render caching
+					// lives in mediaCache (avoids repeated Go IPC + base64 work)
+					resolvedSrcCache = new Map<string, string>();
 					resolvedBlocks = [];
-					for (const b of newBlocks) {
+					for (const b of result.blocks) {
 						resolvedBlocks.push({
 							...b,
-							html: await resolveImagesInHtml(b.html, base),
+							html: await resolveImagesInHtml(b.html, base)
 						});
 					}
 				}
@@ -274,15 +274,23 @@
 	}
 
 	// Measure the dimensions of each section in the preview
+	let lastMeasureKey = '';
 	function measureSectionDimensions() {
 		if (!previewContainer) return;
 
-		const blockElements = previewContainer.querySelectorAll('.markdown-block');
-		const newSectionInfoList: SectionInfo[] = [];
-		
-		// Get container's scroll position and bounding rect for accurate measurements
+		// Skip redundant re-measurements: ResizeObserver fires on every content
+		// size change; unless scrollHeight or the container box actually changed,
+		// the dimensions would come out identical.
 		const containerRect = previewContainer.getBoundingClientRect();
 		const scrollTop = previewContainer.scrollTop;
+		const key = `${blocks.length}|${Math.round(containerRect.width)}|${Math.round(containerRect.height)}|${previewContainer.scrollHeight}`;
+		if (key === lastMeasureKey) return;
+		lastMeasureKey = key;
+
+		const blockElements = previewContainer.querySelectorAll('.markdown-block');
+		const newSectionInfoList: SectionInfo[] = [];
+
+		// Get container's scroll position and bounding rect for accurate measurements
 
 		blocks.forEach((block, index) => {
 			const element = blockElements[index] as HTMLElement;

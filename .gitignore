@@ -6,4 +6,5 @@ build/bin/
 .DS_Store
 .openidea
 .kilo
+.benchout
 dist/

@@ -205,3 +205,27 @@ RUN set -eu; \
 
 FROM scratch AS exporter
 COPY --from=builder /app/build/bin /build/bin
+
+# Benchmark stage (run via ./bench.sh <label>): frontend pipeline + Go benchmarks.
+# Reuses system-node (Go + webkit2gtk dev for CGO wails link + Node).
+FROM system-node AS bench
+ARG BENCH_COUNT=6
+WORKDIR /app
+COPY go.mod go.sum* ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
+RUN --mount=type=cache,target=/root/.npm \
+    cd frontend && (npm ci --legacy-peer-deps || npm install --legacy-peer-deps)
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eux; \
+    mkdir -p /out frontend/dist; \
+    [ -f frontend/dist/index.html ] || printf '<!doctype html><html></html>' > frontend/dist/index.html; \
+    cd frontend && node --expose-gc bench/bench.mjs --out /out/frontend-bench.json; \
+    cd /app && CGO_ENABLED=1 go test -run '^$' -bench . -benchmem -count="$BENCH_COUNT" -timeout 60m | tee /out/go-bench.txt
+
+FROM scratch AS benchout
+COPY --from=bench /out /

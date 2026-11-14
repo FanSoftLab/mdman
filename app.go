@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,6 +14,84 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// mediaCache caches resolved data URLs for media files (LRU, mtime-validated).
+// Without it, every preview re-render re-read every image from disk and
+// re-encoded it to base64 — several copies of the image bytes per render.
+type mediaCacheEntry struct {
+	path    string
+	dataURL string
+	size    int64
+	modNs   int64
+}
+
+type mediaCache struct {
+	mu         sync.Mutex
+	entries    map[string]*list.Element // abs path -> element (front = most recent)
+	order      *list.List
+	totalBytes int64
+	maxEntries int
+	maxBytes   int64
+}
+
+func newMediaCache(maxEntries int, maxBytes int64) *mediaCache {
+	return &mediaCache{
+		entries:    make(map[string]*list.Element),
+		order:      list.New(),
+		maxEntries: maxEntries,
+		maxBytes:   maxBytes,
+	}
+}
+
+func (c *mediaCache) get(path string, fi os.FileInfo) (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	el, ok := c.entries[path]
+	if !ok {
+		return "", false
+	}
+	entry := el.Value.(*mediaCacheEntry)
+	if entry.size != fi.Size() || entry.modNs != fi.ModTime().UnixNano() {
+		// file changed on disk — drop stale entry
+		c.order.Remove(el)
+		delete(c.entries, path)
+		c.totalBytes -= entry.size
+		return "", false
+	}
+	c.order.MoveToFront(el)
+	return entry.dataURL, true
+}
+
+func (c *mediaCache) put(path, dataURL string, size int64, modNs int64) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if el, ok := c.entries[path]; ok {
+		old := el.Value.(*mediaCacheEntry)
+		c.totalBytes -= old.size
+		c.order.Remove(el)
+		delete(c.entries, path)
+	}
+	entry := &mediaCacheEntry{path: path, dataURL: dataURL, size: size, modNs: modNs}
+	c.entries[path] = c.order.PushFront(entry)
+	c.totalBytes += size
+	for c.order.Len() > 1 && (c.order.Len() > c.maxEntries || c.totalBytes > c.maxBytes) {
+		oldest := c.order.Back()
+		if oldest == nil {
+			break
+		}
+		evicted := oldest.Value.(*mediaCacheEntry)
+		c.order.Remove(oldest)
+		delete(c.entries, evicted.path)
+		c.totalBytes -= evicted.size
+	}
+}
+
 
 type WindowState struct {
 	X         int  `json:"x"`
@@ -56,6 +135,7 @@ type App struct {
 	windowLoaded bool
 	pendingMu    sync.Mutex
 	pendingFiles []string
+	media        *mediaCache
 }
 
 func NewApp() *App {
@@ -71,6 +151,7 @@ func NewApp() *App {
 		settings:      make(map[string]interface{}),
 		recentFiles:   []RecentFile{},
 		recentFileMax: 20,
+		media:         newMediaCache(32, 64<<20),
 	}
 	a.loadSettings()
 	a.loadRecentFiles()
@@ -664,6 +745,15 @@ func (a *App) ResolveMediaURL(markdownFile string, mediaPath string) (string, er
 		full = filepath.Join(dir, filepath.FromSlash(rel))
 	}
 
+	fi, err := os.Stat(full)
+	if err != nil {
+		return "", err
+	}
+	// Cache hit avoids re-reading + re-encoding the file on every preview re-render.
+	if dataURL, ok := a.media.get(full, fi); ok {
+		return dataURL, nil
+	}
+
 	data, err := os.ReadFile(full)
 	if err != nil {
 		return "", err
@@ -687,7 +777,9 @@ func (a *App) ResolveMediaURL(markdownFile string, mediaPath string) (string, er
 		mime = "image/x-icon"
 	}
 	enc := base64.StdEncoding.EncodeToString(data)
-	return "data:" + mime + ";base64," + enc, nil
+	dataURL := "data:" + mime + ";base64," + enc
+	a.media.put(full, dataURL, fi.Size(), fi.ModTime().UnixNano())
+	return dataURL, nil
 }
 
 // RestoreWindow is a public alias used from main after DomReady.
