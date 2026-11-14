@@ -1,0 +1,30 @@
+{
+  "extends": "../../.markdownlint.json",
+  "customRules": {
+    "STE001": {
+      "description": "Procedural sentences must not exceed 20 words",
+      "tags": ["ste", "sentence-length"],
+      "function": "checkProceduralSentenceLength"
+    },
+    "STE002": {
+      "description": "Descriptive sentences must not exceed 25 words",
+      "tags": ["ste", "sentence-length"],
+      "function": "checkDescriptiveSentenceLength"
+    },
+    "STE003": {
+      "description": "Passive voice detection in procedural steps",
+      "tags": ["ste", "voice"],
+      "function": "checkPassiveVoice"
+    },
+    "STE004": {
+      "description": "Vague term detection",
+      "tags": ["ste", "vocabulary"],
+      "function": "checkVagueTerms"
+    },
+    "STE005": {
+      "description": "Glossary term consistency",
+      "tags": ["ste", "terminology"],
+      "function": "checkGlossaryTerms"
+    }
+  }
+}

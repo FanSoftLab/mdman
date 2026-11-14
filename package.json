@@ -1,0 +1,18 @@
+{
+  "name": "mdman-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation tooling for mdman",
+  "scripts": {
+    "docs:lint": "markdownlint --config .markdownlint.json docs/**/*.md",
+    "docs:lint:ste": "node docs/ste-rules.js",
+    "docs:linkcheck": "markdown-link-check docs/**/*.md",
+    "docs:spellcheck": "cspell docs/**/*.md",
+    "docs:validate": "npm run docs:lint && npm run docs:linkcheck"
+  },
+  "devDependencies": {
+    "markdownlint": "^0.37.0",
+    "markdown-link-check": "^3.12.0",
+    "cspell": "^8.14.0"
+  }
+}

@@ -95,7 +95,7 @@ const uk: Record<string, string> = {
   mathBlock: 'Блок формул',
   moreOptions: 'Більше параметрів',
   print: 'Друк',
-  autoHideUI: 'Авто-приховування UI',
+  autoHideUI: 'Авто-приховування інтерфейсу',
   wordWrap: 'Перенос слів',
   syncScroll: 'Синхронний скрол',
   resetLayout: 'Скинути макет',
