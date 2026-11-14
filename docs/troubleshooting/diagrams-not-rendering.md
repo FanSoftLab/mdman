@@ -59,7 +59,7 @@ Unsupported: `C4Context`, `C4Container`, `C4Component`, `C4Deployment` (require 
 ## Escalation
 If valid syntax still fails:
 - Collect: Diagram source, Mermaid Live Editor result, mdman version.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Validate syntax in Mermaid Live Editor before pasting.

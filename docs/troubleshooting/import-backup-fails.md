@@ -62,7 +62,7 @@
 ## Escalation
 If the problem persists:
 - Collect: Backup file (sanitized), browser console errors, mdman version.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Export backup regularly (weekly).

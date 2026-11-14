@@ -71,7 +71,7 @@ Running `mdman` (or `wails dev`) produces no window, crashes immediately, or sho
 ## Escalation
 If the problem persists after all actions:
 - Collect: Distribution (`cat /etc/os-release`), kernel (`uname -r`), GPU (`lspci`), session type (`echo $XDG_SESSION_TYPE`), full terminal output.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues) with collected information.
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues) with collected information.
 
 ## Prevention
 - Install dependencies before building/running.

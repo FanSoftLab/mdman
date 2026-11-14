@@ -54,7 +54,7 @@ Changes in **Settings** panel (theme, language, recent limit) revert after resta
 ## Escalation
 If the problem persists:
 - Collect: Config directory path, `ls -la` output, `settings.json` content, `localStorage` dump.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Run mdman as same user consistently.

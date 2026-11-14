@@ -1,0 +1,211 @@
+# mdman
+
+Privacy-first, local-only Markdown editor. Desktop port of SvelteMark, running as a native desktop app via Wails v2 (Go + system webview).
+
+## Overview
+
+- **Name**: mdman
+- **Module**: github.com/FanSoftLab/mdman
+- **Type**: Desktop application (Wails v2)
+- **License**: MIT
+- **Repository**: https://github.com/FanSoftLab/mdman
+- **Upstream**: SvelteMark (https://github.com/MasFana/sveltemark)
+
+## Architecture
+
+### Go Backend (main.go, app.go)
+Single package `main` with `App` struct providing:
+- Workspace management (open folder, file tree)
+- File operations (read, write, create, delete, rename, move)
+- Settings persistence (theme, language, recent files limit)
+- Window state persistence (position, size, maximized)
+- Recent files tracking
+- Session persistence (open tabs, scroll positions)
+- Media file resolution and caching (LRU, mtime-validated, 32 MiB limit)
+- Single-instance enforcement with second-instance file opening
+- CLI file argument handling
+
+### Frontend (frontend/)
+Svelte 5 + TypeScript application with:
+- CodeMirror 6 editor (Markdown, GFM)
+- Live preview (GitHub Markdown CSS)
+- Mermaid diagrams (flowchart, sequence, class, state, pie, gantt, gitgraph, ER, journey)
+- KaTeX math (inline `$...$`, block `$$...$$`)
+- Syntax highlighting (highlight.js)
+- IndexedDB storage (Dexie) — notes never leave device
+- Tabbed interface
+- Dark/light/system themes (app and preview independently)
+- Auto-hide UI mode
+- View-only mode
+- Find & Replace
+- Print dialog
+- Backup/Import (JSON)
+- Keyboard shortcuts for all major actions
+- Context menu in editor
+- Toolbar with formatting, diagram, math, view toggles
+- Table of Contents panel
+- Drag-and-drop folder/file organization
+- Ukrainian and English localization
+
+## Key Files
+
+### Go
+- `main.go` — Entry point, Wails app configuration, window setup
+- `app.go` — Backend logic (App struct, all bound methods)
+
+### Frontend
+- `frontend/src/App.svelte` — Root component
+- `frontend/src/lib/appState.svelte.ts` — Global state (Svelte 5 runes)
+- `frontend/src/lib/markdown.ts` — Markdown processing pipeline (unified/remark/rehype)
+- `frontend/src/lib/components/Editor.svelte` — CodeMirror 6 editor
+- `frontend/src/lib/components/Preview.svelte` — Live preview renderer
+- `frontend/src/lib/components/SettingsPanel.svelte` — Settings UI
+- `frontend/src/lib/components/TabBar.svelte` — Tab management
+- `frontend/src/lib/components/FindReplace.svelte` — Find & Replace dialog
+- `frontend/src/locales/en.ts`, `uk.ts` — UI strings (source of truth for docs)
+
+### Build & Config
+- `wails.json` — Wails v2 configuration
+- `build.sh` — Cross-platform Docker build script (Linux, Windows, macOS, AMD64, ARM64)
+- `Dockerfile` — Multi-stage BuildKit Dockerfile with AppImage packaging
+- `go.mod` — Go module (single dependency: github.com/wailsapp/wails/v2 v2.17.1)
+- `frontend/package.json` — Frontend dependencies
+
+### Documentation
+- `README.md` — Project overview, quick start, build instructions
+- `CONTRIBUTING.md` — Contribution guidelines, documentation standards (ISO/IEC/IEEE 26514 + ASD-STE100)
+- `docs/getting-started/` — Install, open folder, create note
+- `docs/tasks/` — Write markdown, toolbar, shortcuts, context menu, diagrams, math, organize, import/export, settings
+- `docs/concepts/` — Workspaces, themes, auto-hide UI, Mermaid, KaTeX, Linux WebView, reproducible builds, help panel
+- `docs/reference/` — Keyboard shortcuts, settings, markdown syntax, JSON backup schema, CLI/build reference
+- `docs/troubleshooting/` — App won't start, black screen, files not saving, diagrams not rendering, math not rendering, settings not persisting, import/backup fails, build failures
+- `docs/appendix/` — Glossary, licenses, changelog
+
+## Exported Go API (Bound to Frontend)
+
+All methods on `App` are callable from JavaScript as `window.go.main.App.Method()`.
+
+### Workspace & Files
+- `GetWorkspace() string` — Current workspace path
+- `SetWorkspace(path string) error` — Set workspace root folder
+- `SelectWorkspace() (string, error)` — Native folder picker
+- `ListFiles(rel string) ([]FileNode, error)` — Directory tree (Markdown files + folders)
+- `ReadFile(rel string) (string, error)` — Read file content (relative or absolute path)
+- `WriteFile(path string, content string) error` — Write file (relative or absolute)
+- `SaveFileAs(content, suggestedName string) (string, error)` — Native Save As dialog
+- `OpenFileDialog() (map[string]string, error)` — Native Open File dialog
+- `CreateFile(rel, content string) error` — Create new file
+- `CreateFolder(rel string) error` — Create directory
+- `DeletePath(rel string) error` — Delete file or folder (recursive)
+- `RenamePath(oldRel, newRel string) error` — Move/rename within workspace
+
+### Recent Files
+- `ListRecent() []RecentFile` — Recent files (most recent first)
+- `AddRecent(path string)` — Add file to recent list
+- `ClearRecent()` — Clear all recent files
+
+### Settings
+- `GetSettings() map[string]interface{}` — All settings (deep copy)
+- `SaveSettings(settings map[string]interface{})` — Merge and persist settings
+- `GetSession() map[string]interface{}` — Session state (tabs, scroll)
+- `SaveSession(session map[string]interface{})` — Persist session state
+
+### Window & UI
+- `GetWindowState() WindowState` — Saved geometry with defaults
+- `SnapshotWindow()` — Persist current geometry (called from frontend)
+- `RestoreWindow()` — Restore geometry (called from main after DomReady)
+- `GetStartupTheme() string` — "dark" or "light" for pre-load background
+
+### Media
+- `ResolveMediaURL(markdownFile, mediaPath string) (string, error)` — Resolve media to data: URL (cached)
+
+### CLI & Instance
+- `SetPendingFiles(files []string)` — Store CLI/second-instance file paths
+- `ConsumePendingFiles() []string` — Retrieve and clear pending files
+- `GetContext() context.Context` — Current Wails runtime context
+
+## Data Types
+
+```go
+type WindowState struct {
+    X, Y, Width, Height int
+    Maximised           bool
+}
+
+type RecentFile struct {
+    Path     string
+    Name     string
+    OpenedAt int64 // ms since epoch
+}
+
+type FileNode struct {
+    Name        string
+    Path        string // relative to workspace, slash-separated
+    IsDir       bool
+    Size        int64
+    Modified    int64 // ms since epoch
+    Children    []FileNode
+    HasChildren bool
+}
+```
+
+## Settings Keys
+
+| Key | Type | Values | Default | Description |
+|-----|------|--------|---------|-------------|
+| themeApp | string | "dark", "light", "system" | "system" | Application chrome theme |
+| themePreview | string | "dark", "light", "system" | "system" | Preview pane theme |
+| language | string | "en", "uk" | "en" | UI language |
+| recentFileMax | int | 1-1000 | 20 | Recent files list limit |
+| workspace | string | absolute path | "" | Current workspace root |
+| session | object | — | {} | Open tabs, scroll positions |
+
+## Build & Release
+
+### Development
+```bash
+cd frontend && npm install && cd ..
+wails dev
+```
+
+### Production Build (Current Platform)
+```bash
+cd frontend && npm run build && cd ..
+wails build
+```
+
+### Cross-Platform Docker Build
+```bash
+./build.sh                    # Current OS/arch, AppImage on Linux
+./build.sh -os linux -arch amd64
+./build.sh -os linux,windows -arch amd64 -v 1.0.0
+./build.sh -no-appimage -no-cache
+```
+
+Output: `./dist/mdman-<os>-<arch>` (`.exe` on Windows), `./dist/mdman-linux-<arch>.AppImage`
+
+### Version Embedding
+Injected via `-ldflags`:
+- `main.version` — SemVer (e.g., "1.0.0")
+- `main.buildTime` — ISO 8601 UTC
+- `main.buildCommit` — Full git SHA
+- `main.buildSource` — Repo URL or "local"
+
+### CI/CD
+GitHub Actions (`.github/workflows/ci.yml`):
+- Lint docs (markdownlint, link check, spell check)
+- Lint Go (go vet, golangci-lint)
+- Test Go (`go test ./...`)
+- Build frontend (type check, build)
+- Build Go binary (Linux AMD64)
+
+## Requirements
+
+- Go 1.27+
+- Node.js 20+
+- Wails CLI v2.17.1 (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`
+
+## License
+
+MIT — see LICENSE file. Third-party licenses in LICENSES.md.

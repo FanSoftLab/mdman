@@ -74,7 +74,7 @@ go clean -cache -modcache
 If the problem persists:
 - Collect: Full build log, `go version`, `node --version`, `docker version`, OS.
 - Run `wails doctor` and include output.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Use Docker build (`./build.sh`) for consistent environment.

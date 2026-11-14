@@ -77,7 +77,7 @@ docker build \
   --build-arg APP_VERSION=1.0.0 \
   --build-arg BUILD_TIME="2026-01-15T10:30:00Z" \
   --build-arg BUILD_COMMIT="abc123..." \
-  --build-arg BUILD_SOURCE="https://github.com/localtools/mdman" \
+  --build-arg BUILD_SOURCE="https://github.com/FanSoftLab/mdman" \
   --build-arg PLATFORMS="linux/amd64,windows/amd64" \
   --build-arg BUILD_APPIMAGE=true \
   --target exporter \
@@ -117,7 +117,7 @@ docker build \
 ## Go Module (go.mod)
 
 ```go
-module github.com/localtools/mdman
+module github.com/FanSoftLab/mdman
 
 go 1.27
 
@@ -141,7 +141,7 @@ var (
 
 Overridden at build via `-ldflags`:
 ```
--s -w -X main.version=1.0.0 -X main.buildTime=2026-01-15T10:30:00Z -X main.buildCommit=abc123 -X main.buildSource=https://github.com/localtools/mdman
+-s -w -X main.version=1.0.0 -X main.buildTime=2026-01-15T10:30:00Z -X main.buildCommit=abc123 -X main.buildSource=https://github.com/FanSoftLab/mdman
 ```
 
 - `-s -w`: Strip symbol table and DWARF (release only).
@@ -153,7 +153,7 @@ Overridden at build via `-ldflags`:
 - Handled in `main.go` `flag.Args()` → `app.SetPendingFiles()` → `app.ConsumePendingFiles()` on **DomReady**.
 
 ## Single Instance Lock
-- `UniqueId: "com.localtools.mdman"` prevents multiple instances.
+- `UniqueId: "com.fansoftlab.mdman"` prevents multiple instances.
 - Second launch: activates existing window, emits `open-files` event with arguments.
 
 ## Related Topics

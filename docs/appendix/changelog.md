@@ -1,5 +1,8 @@
 # Changelog
 
+> **Canonical changelog:** [CHANGELOG.md](../../CHANGELOG.md) at repository root.
+> This file mirrors the root changelog for documentation site integration.
+
 ## Format
 Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.

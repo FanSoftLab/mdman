@@ -83,7 +83,7 @@ The **preview** pane (or entire window on mobile/view-only) displays a black rec
 If the problem persists after all actions:
 - Collect: Distribution, kernel, GPU, session type, `WEBKIT_DISABLE_GPU_PROCESS` test result, terminal output.
 - Test with `wails dev` (development mode) — if it works, issue is production build/AppImage specific.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Build AppImage on oldest supported `glibc` (Docker `bookworm` base used in `Dockerfile`).

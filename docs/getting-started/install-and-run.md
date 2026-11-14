@@ -13,7 +13,7 @@ Install mdman on your system and launch the application.
 ## Procedure
 
 ### Option 1: Download Prebuilt Binary (Recommended)
-1. Go to the [Releases page](https://github.com/localtools/mdman/releases).
+1. Go to the [Releases page](https://github.com/FanSoftLab/mdman/releases).
 2. Download the archive for your operating system and architecture.
 3. Extract the archive.
 4. Run the `mdman` executable.
@@ -21,7 +21,7 @@ Install mdman on your system and launch the application.
 ### Option 2: Build from Source
 1. Clone the repository:
    ```bash
-   git clone https://github.com/localtools/mdman.git
+   git clone https://github.com/FanSoftLab/mdman.git
    cd mdman
    ```
 2. Install frontend dependencies:

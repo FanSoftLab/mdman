@@ -56,7 +56,7 @@
 ## Escalation
 If the problem persists:
 - Collect: OS, **workspace** path, `ls -la` output, disk space, exact error message (if any).
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Always open a **workspace** before creating **notes**.

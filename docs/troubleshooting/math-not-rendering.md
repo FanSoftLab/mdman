@@ -49,7 +49,7 @@ Supported: All [KaTeX Supported Functions](https://katex.org/docs/supported.html
 ## Escalation
 If valid KaTeX still fails:
 - Collect: Formula source, KaTeX.org test result, mdman version.
-- Report at [GitHub Issues](https://github.com/localtools/mdman/issues).
+- Report at [GitHub Issues](https://github.com/FanSoftLab/mdman/issues).
 
 ## Prevention
 - Test formulas at [KaTeX.org](https://katex.org/) before pasting.

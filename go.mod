@@ -1,4 +1,4 @@
-module github.com/localtools/mdman
+module github.com/FanSoftLab/mdman
 
 go 1.27
 
