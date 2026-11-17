@@ -750,6 +750,50 @@ func (a *App) resolvePath(rel string) (string, error) {
 	return abs, nil
 }
 
+// FileStat describes size and modification time of a path on disk.
+// Used by the frontend to detect external changes to open tabs.
+type FileStat struct {
+	Path   string `json:"path"`
+	ModNs  int64  `json:"modNs"`
+	Size   int64  `json:"size"`
+	Exists bool   `json:"exists"`
+}
+
+// StatFiles returns current size and mtime for the given paths.
+// Relative paths are resolved inside the workspace; absolute paths are accepted as-is.
+// Missing or unreadable paths are returned with Exists=false (no error).
+func (a *App) StatFiles(paths []string) []FileStat {
+	out := make([]FileStat, 0, len(paths))
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		var full string
+		if filepath.IsAbs(p) {
+			full = p
+		} else {
+			var err error
+			full, err = a.resolvePath(p)
+			if err != nil {
+				out = append(out, FileStat{Path: p, Exists: false})
+				continue
+			}
+		}
+		fi, err := os.Stat(full)
+		if err != nil {
+			out = append(out, FileStat{Path: p, Exists: false})
+			continue
+		}
+		out = append(out, FileStat{
+			Path:   p,
+			ModNs:  fi.ModTime().UnixNano(),
+			Size:   fi.Size(),
+			Exists: true,
+		})
+	}
+	return out
+}
+
 // ReadFile loads a file's contents as a UTF-8 string. Relative paths are
 // resolved within the workspace via resolvePath (path traversal protected).
 // Absolute paths are accepted directly (e.g., from file dialogs or CLI args).

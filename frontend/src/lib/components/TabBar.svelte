@@ -6,6 +6,10 @@
     title: string;
     path: string;
     dirty?: boolean;
+    /** Last known disk mtime (ns) — used to detect external changes. */
+    lastModNs?: number;
+    /** Last known disk size — paired with lastModNs. */
+    lastSize?: number;
   };
 
   interface Props {

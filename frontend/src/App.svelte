@@ -206,12 +206,59 @@
 		if (existing) {
 			activeTabId = existing.id;
 			appState.buffer = content;
+			void refreshTabStat(existing.id, path);
 			return;
 		}
 		const id = newTabId();
 		tabs = [...tabs, { id, title: title || t('untitled'), path, dirty: false }];
 		activeTabId = id;
 		appState.buffer = content;
+		void refreshTabStat(id, path);
+	}
+
+	/** Update lastModNs/lastSize for a tab from disk (after open/save/reload). */
+	async function refreshTabStat(tabId: string, path: string) {
+		if (!path) return;
+		try {
+			const stats = await platform.statFiles([path]);
+			const st = stats[0];
+			if (!st?.exists) return;
+			tabs = tabs.map((t) =>
+				t.id === tabId ? { ...t, lastModNs: st.modNs, lastSize: st.size } : t
+			);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	/**
+	 * If the active tab's file changed on disk and is not dirty, reload buffer.
+	 * Returns true when content was reloaded.
+	 */
+	async function checkActiveFileExternalChange(): Promise<boolean> {
+		const tab = tabs.find((t) => t.id === activeTabId);
+		if (!tab?.path || tab.dirty) return false;
+		try {
+			const stats = await platform.statFiles([tab.path]);
+			const st = stats[0];
+			if (!st?.exists) return false;
+			const known =
+				tab.lastModNs !== undefined &&
+				tab.lastSize !== undefined &&
+				st.modNs === tab.lastModNs &&
+				st.size === tab.lastSize;
+			if (known) return false;
+			const content = await platform.readFile(tab.path);
+			appState.buffer = content;
+			tabs = tabs.map((t) =>
+				t.id === tab.id
+					? { ...t, dirty: false, lastModNs: st.modNs, lastSize: st.size }
+					: t
+			);
+			return true;
+		} catch {
+			return false;
+		}
 	}
 	async function persistUiSettings() {
 		const prev = await platform.getSettings();
@@ -242,6 +289,7 @@
 		}
 		await platform.writeFile(tab.path, appState.buffer);
 		tabs = tabs.map((t) => (t.id === tab.id ? { ...t, dirty: false } : t));
+		await refreshTabStat(tab.id, tab.path);
 		await persistUiSettings();
 	}
 	async function saveCurrentAs() {
@@ -252,6 +300,7 @@
 		tabs = tabs.map((t) =>
 			t.id === activeTabId ? { ...t, path, title: basename(path), dirty: false } : t
 		);
+		await refreshTabStat(activeTabId, path);
 		recentFiles = await platform.listRecent();
 		await persistUiSettings();
 	}
@@ -385,6 +434,9 @@
 		const tocFromLS = loadTOCState();
 		await appState.initialize();
 
+		let externalPoll: ReturnType<typeof setInterval> | null = null;
+		let onKey: ((e: KeyboardEvent) => void) | null = null;
+
 		try {
 		const savedLoc = localStorage.getItem('mdman.locale');
 		initLocale(savedLoc || undefined);
@@ -410,7 +462,12 @@
 			activeTabId = session.activeTabId || tabs[0]?.id || '';
 			const active = tabs.find((t) => t.id === activeTabId);
 			if (active?.path) {
-				try { appState.buffer = await platform.readFile(active.path); } catch { appState.buffer = ''; }
+				try {
+					appState.buffer = await platform.readFile(active.path);
+					await refreshTabStat(active.id, active.path);
+				} catch {
+					appState.buffer = '';
+				}
 			} else {
 				appState.buffer = '';
 			}
@@ -423,11 +480,19 @@
 		const pending = await platform.consumePendingFiles();
 		if (pending?.length) await openPaths(pending);
 		platform.onOpenFiles((paths) => { void openPaths(paths); });
+
+		// Poll active tab for external disk changes (only when not dirty).
+		// Inactive tabs are refreshed on switch via readFile in onselect.
+		const EXTERNAL_POLL_MS = 1500;
+		externalPoll = setInterval(() => {
+			void checkActiveFileExternalChange();
+		}, EXTERNAL_POLL_MS);
+
 		// Window geometry is persisted only on app close (Go BeforeClose/Shutdown).
 
 		window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyThemes);
 
-		const onKey = async (e: KeyboardEvent) => {
+		onKey = async (e: KeyboardEvent) => {
 			const mod = e.ctrlKey || e.metaKey;
 			if (!mod) return;
 			if (e.key === 's' && !e.shiftKey) { e.preventDefault(); await saveCurrent(); }
@@ -463,6 +528,11 @@
 		setTimeout(() => {
 			syncSectionDimensions();
 		}, 500);
+
+		return () => {
+			if (externalPoll) clearInterval(externalPoll);
+			if (onKey) window.removeEventListener('keydown', onKey);
+		};
 	});
 
 	// Re-measure sections when word wrap changes (line heights change with wrapping)
@@ -1173,8 +1243,12 @@
 					activeTabId = id;
 					const tab = tabs.find((t) => t.id === id);
 					if (tab?.path) {
-						try { appState.buffer = await platform.readFile(tab.path); }
-						catch { appState.buffer = ''; }
+						try {
+							appState.buffer = await platform.readFile(tab.path);
+							await refreshTabStat(id, tab.path);
+						} catch {
+							appState.buffer = '';
+						}
 					} else appState.buffer = '';
 					await persistUiSettings();
 				}}
@@ -1191,8 +1265,12 @@
 							activeTabId = next[0].id;
 							const tab = next[0];
 							if (tab.path) {
-								try { appState.buffer = await platform.readFile(tab.path); }
-								catch { appState.buffer = ''; }
+								try {
+									appState.buffer = await platform.readFile(tab.path);
+									await refreshTabStat(tab.id, tab.path);
+								} catch {
+									appState.buffer = '';
+								}
 							} else appState.buffer = '';
 						}
 					}
@@ -1651,7 +1729,6 @@
 		flex: 0 1 900px; /* Don't grow beyond 900px, shrink if needed */
 		max-width: 900px;
 		width: 100%;
-		align-self: center;
 	}
 
 	/* View-only mode: center the preview pane */

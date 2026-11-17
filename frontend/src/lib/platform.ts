@@ -71,6 +71,19 @@ export async function readFile(path: string): Promise<string> {
   return ((await a.ReadFile(path)) as string) ?? '';
 }
 
+export type FileStat = {
+  path: string;
+  modNs: number;
+  size: number;
+  exists: boolean;
+};
+
+export async function statFiles(paths: string[]): Promise<FileStat[]> {
+  const a = api();
+  if (!a?.StatFiles) return [];
+  return ((await a.StatFiles(paths)) as FileStat[]) ?? [];
+}
+
 export async function writeFile(path: string, content: string): Promise<void> {
   const a = api();
   if (a?.WriteFile) await a.WriteFile(path, content);
